@@ -1,0 +1,33 @@
+# --- SICHERHEIT  ---
+.env
+
+# --- VIRTUELLE UMGEBUNG ---
+.venv/
+venv/
+env/
+
+# --- PYTHON SYSTEMDATEIEN ---
+__pycache__/
+*.pyc
+
+# --- PROJEKT OUTPUTS ---
+output_JSON/
+output_JSON_Marvin/
+output_HTML/
+output_errors/
+input_images/
+retry_list.csv
+
+# --- LOGS ---
+*.log
+marvin_pipeline.log
+
+# --- VS CODE EINSTELLUNGEN  ---
+.vscode/
+
+# --- SYSTEMDATEIEN ---
+.DS_Store
+Thumbs.db
+# --- Zusatz
+___README/
+code_Backups/

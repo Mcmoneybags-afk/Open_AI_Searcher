@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ product_name }} - Datenblatt</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #ff6600; padding-bottom: 10px; }
+        
+        /* --- JTL / SYSTEMTREFF STYLES SIMULATION --- */
+        .ITSs {
+            width: 100%;
+            border: 1px solid #ddd;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        /* Graue Überschrift */
+        .ITSg {
+            background-color: #e0e0e0;
+            font-weight: bold;
+            padding: 8px 10px;
+            color: #333;
+            border-top: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+            margin-top: 0px; 
+        }
+        /* Erste Gruppe oben braucht keinen Margin/Border oben */
+        .ITSs > .ITSg:first-child { border-top: none; margin-top: 0; }
+
+        /* Zeile Hell (r1) */
+        .ITSr1 {
+            background-color: #ffffff;
+            display: flex;
+            padding: 6px 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* Zeile Dunkel (r0) - Zebra */
+        .ITSr0 {
+            background-color: #f9f9f9;
+            display: flex;
+            padding: 6px 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* Name der Eigenschaft (Links) */
+        .ITSn {
+            width: 40%;
+            font-weight: 600;
+            color: #555;
+            padding-right: 10px;
+        }
+
+        /* Wert der Eigenschaft (Rechts) */
+        .ITSv {
+            width: 60%;
+            color: #000;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>{{ product_name }}</h1>
+        <p style="color: gray; font-size: 0.9em;">Vorschau des JTL-Bausteins:</p>
+
+        {{ tech_specs | safe }}
+
+    </div>
+
+</body>
+</html>
