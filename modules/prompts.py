@@ -11,16 +11,24 @@ def classify_product_type(product_name, gtin):
     """
     name_lower = product_name.lower()
     
-    # --- 🏎️ FAST LANE (Sofort-Entscheidung ohne AI) ---
+    if "cpu-kühler" in name_lower or "luftkühler" in name_lower or \
+       "wasserkühlung" in name_lower or "cpu cooler" in name_lower or \
+       "liquid cooler" in name_lower or "aio" in name_lower:
+        print(f"   🧠 Router (Fast-Lane): '{product_name[:30]}...' -> CPU-Kühler")
+        return "CPU-Kühler"
+        
+    # 2. Gehäuselüfter
     if "gehäuselüfter" in name_lower or "case fan" in name_lower:
         print(f"   🧠 Router (Fast-Lane): '{product_name[:30]}...' -> Gehäuselüfter")
         return "Gehäuselüfter"
     
+    # 3. Kleinkram
     if "kabel" in name_lower or "adapter" in name_lower:
         return "Kabel"
-        
     if "mauspad" in name_lower:
         return "Mauspad"
+    if "wärmeleitpaste" in name_lower or "thermal compound" in name_lower:
+        return "Wärmeleitpaste"
 
     # --- 🧠 AI Router (für den Rest) ---
     try:
