@@ -519,6 +519,8 @@ def get_prompt_by_category(product_name, gtin):
             }
         }
         """
+        
+        
 
     else:
         # Fallback für alles, was wir noch nicht definiert haben
