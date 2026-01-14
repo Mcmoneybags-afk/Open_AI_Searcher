@@ -38,6 +38,9 @@ class MarvinMapper:
         return " ".join(clean.split())
     
     def _extract_value_with_unit(self, text, unit_regex):
+        """
+        Sucht gezielt nach einer Zahl, die VOR einer bestimmten Einheit steht.
+        """
         if not text: return 0.0
         pattern = fr'(\d+([.,]\d+)?)\s*({unit_regex})'
         match = re.search(pattern, str(text), re.IGNORECASE)
@@ -888,19 +891,24 @@ class MarvinMapper:
         }
         
     def map_cpu_cooler(self, data, html_content=""):
+        """Mapping für Warengruppe 9: CPU-Kühler & AiO"""
         allg = data.get("Allgemein", {})
         komp = data.get("Kompatibilität", {})
         tech = data.get("Technische Daten", {})
         feat = data.get("Beleuchtung & Features", {})
         p_name = data.get("Produktname", data.get("_Produktname", ""))
 
+        # 1. Typ Bestimmung (Luft vs AiO)
         is_aio = "aio" in str(allg).lower() or "wasser" in str(allg).lower() or "liquid" in p_name.lower()
         
+        # 2. Bauhöhe & Radiator
         height_mm = self._extract_value_with_unit(tech.get("Bauhöhe (nur Kühler)", ""), "mm")
         rad_size = self._extract_value_with_unit(tech.get("Radiatorgröße", ""), "mm")
 
+        # Fallback AiO Höhe
         if is_aio and height_mm == 0: height_mm = 55 
             
+        # 3. Sockel & Typ
         sockets_str = str(komp.get("Sockel", ""))
         sockets_clean = sockets_str.replace("[", "").replace("]", "").replace("'", "")
         
@@ -912,18 +920,21 @@ class MarvinMapper:
         elif has_intel: cpu_kuehler_typ = 2
         elif has_amd: cpu_kuehler_typ = 1
         
+        # 4. Features
         rgb_text = str(feat) + " " + p_name
         has_rgb = 1 if "RGB" in rgb_text else 0
         has_argb = 1 if "ARGB" in rgb_text or "Addressable" in rgb_text else 0
         is_silent = 1 if "silent" in str(data).lower() or "quiet" in p_name.lower() else 0
         
+        # 5. TDP
         tdp = int(self._extract_value_with_unit(allg.get("TDP-Klasse", ""), "W|Watt"))
         
+        # 6. Shortname
         suffix = ""
         if is_aio and rad_size > 0: suffix = f"{int(rad_size)}mm AiO"
         elif tdp > 0: suffix = f"{tdp}W TDP"
             
-        remove_list = ["CPU-Kühler", "Cooler", "Wasserkühlung", "Liquid", "All-in-One", "TDP", "Watt"]
+        remove_list = ["CPU-Kühler", "Cooler", "Wasserkühlung", "Liquid", "All-in-One", "TDP", "Watt", "System", "Komplett"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         short_name = f"{brand_clean} {suffix}".strip()
         
@@ -1073,7 +1084,7 @@ class MarvinMapper:
                 cat_debug = "CPU-Kühler"
              except Exception as e:
                 print(f"   ❌ Fehler im Kühler-Mapping für {filename}: {e}")
-                return 
+                return
         
         else:
             print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")
