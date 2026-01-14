@@ -967,7 +967,7 @@ class MarvinMapper:
         filename = os.path.basename(source_file)
         
         # --- WICHTIG: Hier definieren wir die String-Variable für die Suche ---
-        json_str = json.dumps(data).lower()
+        json_str = json.dumps(data, ensure_ascii=False).lower()
         
         # Wir holen uns die Schlüssel der obersten Ebene
         root_keys = [k.lower() for k in data.keys()]

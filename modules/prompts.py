@@ -4,46 +4,72 @@ from openai import OpenAI
 # Client initialisieren
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# ==============================================================================
+# 🚦 ROUTER KONFIGURATION (Hier neue Kategorien hinzufügen!)
+# ==============================================================================
+# Die Reihenfolge ist WICHTIG! Spezifische Begriffe müssen VOR generischen stehen.
+# Struktur: ("Kategorie-Name", [Liste der eindeutigen Keywords])
+
+ROUTER_RULES = [
+    # 1. Sehr spezifische Hardware
+    ("CPU-Kühler", ["cpu-kühler", "luftkühler", "wasserkühlung", "cpu cooler", "liquid cooler", "aio", "water cooling"]),
+    ("Gehäuselüfter", ["gehäuselüfter", "case fan", "system fan", "lüfter", "fan"]), # 'Lüfter' erst NACH CPU-Kühler prüfen!
+    
+    # 2. Hauptkomponenten
+    ("Mainboard", ["mainboard", "motherboard", "b650", "z790", "x670", "b760", "am5", "lga1700"]), # Chipsätze helfen oft
+    ("Grafikkarte", ["grafikkarte", "gpu", "rtx", "radeon", "geforce", "gtx"]),
+    ("Prozessor", ["prozessor", "cpu", "intel core", "amd ryzen"]),
+    ("Arbeitsspeicher", ["arbeitsspeicher", "ddr4", "ddr5", "dimm", "so-dimm", "ram kit"]),
+    
+    # 3. Gehäuse & Strom
+    ("Gehäuse", ["gehäuse", "midi tower", "big tower", "mini tower", "pc-case"]),
+    ("Netzteil", ["netzteil", "power supply", "psu", "atx 3.0", "gold", "platinum"]),
+    
+    # 4. Speicher & Laufwerke
+    ("Speicher", ["ssd", "hdd", "festplatte", "m.2", "nvme", "sata"]),
+    ("Laufwerk", ["dvd-brenner", "blu-ray", "laufwerk"]),
+    
+    # 5. Peripherie & Zubehör (Oft problematisch, daher gut keyworden)
+    ("Monitor", ["monitor", "bildschirm", "display", "tft", "oled", "ips"]),
+    ("Eingabegeräte", ["maus", "tastatur", "keyboard", "mouse", "keypad"]),
+    ("Kabel", ["kabel", "adapter", "hdmi", "displayport", "usb-c", "verlängerung"]),
+    ("Mauspad", ["mauspad", "mousepad"]),
+    ("Wärmeleitpaste", ["wärmeleitpaste", "thermal compound", "thermal paste"]),
+    ("Software", ["windows", "office", "antivirus", "software"]),
+]
+
 def classify_product_type(product_name, gtin):
     """
     Der 'Router': Entscheidet, was das Produkt ist.
-    Inklusive 'Fast-Lane' für eindeutige Begriffe.
+    Nutzt jetzt die konfigurierbare ROUTER_RULES Liste für die Fast-Lane.
     """
     name_lower = product_name.lower()
     
-    if "cpu-kühler" in name_lower or "luftkühler" in name_lower or \
-       "wasserkühlung" in name_lower or "cpu cooler" in name_lower or \
-       "liquid cooler" in name_lower or "aio" in name_lower:
-        print(f"   🧠 Router (Fast-Lane): '{product_name[:30]}...' -> CPU-Kühler")
-        return "CPU-Kühler"
-        
-    # 2. Gehäuselüfter
-    if "gehäuselüfter" in name_lower or "case fan" in name_lower:
-        print(f"   🧠 Router (Fast-Lane): '{product_name[:30]}...' -> Gehäuselüfter")
-        return "Gehäuselüfter"
-    
-    # 3. Kleinkram
-    if "kabel" in name_lower or "adapter" in name_lower:
-        return "Kabel"
-    if "mauspad" in name_lower:
-        return "Mauspad"
-    if "wärmeleitpaste" in name_lower or "thermal compound" in name_lower:
-        return "Wärmeleitpaste"
+    # --- 🏎️ FAST LANE (Listen-basiert) ---
+    for category, keywords in ROUTER_RULES:
+        # Prüfen, ob eines der Keywords im Namen steckt
+        for kw in keywords:
+            # Wir prüfen mit Wortgrenzen-Logik oder simpler Inklusion
+            if kw in name_lower:
+                # Debug Ausgabe nur für wichtige Entscheidungen
+                # print(f"   🧠 Router (Fast-Lane): '{kw}' erkannt -> {category}")
+                return category
 
-    # --- 🧠 AI Router (für den Rest) ---
+    # --- 🧠 AI Router (Fallback für unklare Fälle) ---
     try:
         gtin_info = f"GTIN: {gtin}" if gtin else ""
+        
+        # Liste der bekannten Kategorien dynamisch aus den Regeln bauen
+        known_cats = [rule[0] for rule in ROUTER_RULES]
+        cat_list_str = ", ".join(known_cats)
         
         response = client.chat.completions.create(
             model=MODEL_NAME, 
             messages=[
-                {"role": "system", "content": """
+                {"role": "system", "content": f"""
                 Du bist ein präziser Hardware-Klassifizierer.
-                Ordne den Artikel EINER der folgenden Kategorien zu.
-                
-                Kategorien-Liste: 
-                [Netzteil, Prozessor, Grafikkarte, Mainboard, RAM, SSD, HDD, Gehäuse, 
-                 Gehäuselüfter, CPU-Kühler, Monitor, Laufwerk, Eingabegeräte, Netzwerk, Software]
+                Ordne den Artikel EINER der folgenden Kategorien zu:
+                [{cat_list_str}, Sonstiges]
                 
                 Antworte NUR mit dem exakten Wort der Kategorie.
                 """},
@@ -52,6 +78,8 @@ def classify_product_type(product_name, gtin):
             temperature=0.0
         )
         category = response.choices[0].message.content.strip()
+        
+        # Manchmal antwortet die KI mit "Kategorie: Prozessor" -> bereinigen
         if ":" in category: category = category.split(":")[-1].strip()
             
         print(f"   🧠 AI-Router: '{product_name[:30]}...' -> {category}")
@@ -63,14 +91,13 @@ def classify_product_type(product_name, gtin):
 
 def get_prompt_by_category(product_name, gtin):
     """ 
-    Wählt den Prompt basierend auf der KI-Entscheidung.
-    Liefert HIERARCHISCHE JSON-Daten (Nested), exakt passend zum JTL-Shop Layout.
+    Wählt den Prompt basierend auf der Entscheidung.
     """
     
     category = classify_product_type(product_name, gtin)
     cat_lower = category.lower()
 
-    # Basis-Prompt
+    # Basis-Prompt (unverändert)
     base_prompt = f"""
     Du bist ein technischer Hardware-Experte für Datenpflege.
     Produkt: {product_name}
@@ -88,14 +115,103 @@ def get_prompt_by_category(product_name, gtin):
        ```json
        {{ ... }}
        ```
-    6. ANTI-LOOP REGEL (WICHTIG): Suche maximal 3-4 Mal. Wenn du dann nicht alle Details hast, ERZWINGE eine Ausgabe mit den vorhandenen Daten. Fülle fehlende Werte mit "N/A". Brich NIEMALS ohne JSON ab!
+    6. ANTI-LOOP REGEL: Suche maximal 3-4 Mal. Brich NIEMALS ohne JSON ab!
     """
 
-    # === 10. CPU-KÜHLER / AIO (WG 9) ===
-    if "kühler" in cat_lower or "cooler" in cat_lower or "wasserkühlung" in cat_lower or "aio" in cat_lower:
+    # === Dispatcher Logik ===
+    # Hier prüfen wir nun auf die Kategorien, die der Router zurückgegeben hat.
+    
+    if "cpu-kühler" in cat_lower:
         return base_prompt + """
-        Kategorie: CPU-Kühler (Luft oder AiO Wasserkühlung)
+        Kategorie: CPU-Kühler
+        ERSTELLE EIN HIERARCHISCHES JSON.
+        WICHTIG: Unterscheide 'Luftkühler' vs 'AiO Wasserkühlung'.
         
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": { "Gerätetyp": "Luftkühler oder AiO", "Modell": "Name", "TDP-Klasse": "Watt" },
+            "Kompatibilität": { "Sockel": "AM4¦LGA1700..." },
+            "Technische Daten": { "Bauhöhe (nur Kühler)": "mm", "Radiatorgröße": "mm", "Lüftergröße": "mm", "Lautstärke": "dBA" },
+            "Beleuchtung & Features": { "Beleuchtung": "ARGB", "Anschluss": "PWM" }
+        }
+        """
+
+    elif "gehäuselüfter" in cat_lower:
+        return base_prompt + """
+        Kategorie: Gehäuselüfter
+        ERSTELLE EIN HIERARCHISCHES JSON (Nested).
+        
+        SPEZIAL-ANWEISUNG FÜR "NEUTRAL" / GENERISCHE ARTIKEL:
+        Wenn der Artikel "Neutral" oder keinen Markennamen hat:
+        1. Suche NICHT im Internet nach Datenblättern.
+        2. Leite die Größe aus dem Namen ab (z.B. "120x120" -> 120 mm).
+        3. Fülle den Rest mit plausiblen Standardwerten (Schwarz, 1200 rpm, 3-Pin/4-Pin).
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Gehäuselüfter",
+                "Modell": "z.B. Generic 120mm",
+                "Farbe": "z.B. Schwarz",
+                "Paketmenge": "1"
+            },
+            "Technische Daten": {
+                "Lüfterdurchmesser": "z.B. 120 mm",
+                "Lüfterhöhe": "z.B. 25 mm",
+                "Rotationsgeschwindigkeit": "z.B. 1200 rpm",
+                "Luftstrom": "N/A",
+                "Geräuschpegel": "z.B. 25 dBA",
+                "Lager": "Gleitlager"
+            },
+            "Anschlüsse & Features": {
+                "Stromanschluss": "3-Pin / 4-Pin PWM",
+                "Beleuchtung": "Keine",
+                "Besonderheiten": "N/A"
+            }
+        }
+        """
+        
+    elif "monitor" in cat_lower:
+        return base_prompt + """
+        Kategorie: Monitor
+        ERSTELLE EIN HIERARCHISCHES JSON (Nested).
+        
+        WICHTIG ZU AUFLÖSUNG: Gib das Format "BxH" an (z.B. 1920x1080).
+        WICHTIG ZU ANSCHLÜSSEN: Zähle die Ports genau (z.B. 2 x HDMI, 1 x DisplayPort).
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "z.B. LED-hintergrundbeleuchteter LCD-Monitor",
+                "Modell": "z.B. Odyssey G5",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Display": {
+                "Diagonale": "z.B. 27 Zoll (oder 68.6 cm)",
+                "Auflösung": "z.B. 2560 x 1440 (WQHD)",
+                "Bildwiederholrate": "z.B. 144 Hz",
+                "Reaktionszeit": "z.B. 1 ms (MPRT)",
+                "Panel-Typ": "z.B. IPS oder VA",
+                "Helligkeit": "z.B. 300 cd/m²",
+                "Kontrast": "z.B. 1000:1"
+            },
+            "Schnittstellen": {
+                "Anschlüsse": "Liste (z.B. 1 x DisplayPort 1.2, 2 x HDMI 2.0, 1 x Kopfhörer)"
+            },
+            "Verschiedenes": {
+                "Besonderheiten": "z.B. AMD FreeSync Premium, Höhenverstellbar, Pivot",
+                "Zubehör": "z.B. HDMI-Kabel, Stromkabel"
+            },
+            "Energieversorgung": {
+                "Stromverbrauch SDR (Eingeschaltet)": "z.B. 25 kWh/1000h",
+                "Energieeffizienzklasse": "z.B. Klasse F"
+            }
+        }
+        """
+
+    elif "netzteil" in cat_lower:
+        return base_prompt + """
+        Kategorie: Netzteil
         ERSTELLE EIN HIERARCHISCHES JSON.
         
         WICHTIG: 
@@ -127,56 +243,10 @@ def get_prompt_by_category(product_name, gtin):
         }
         """
 
-    # === 1. NETZTEILE (JTL-Optimiert) ===
-    if "netzteil" in cat_lower or "power supply" in cat_lower or "psu" in cat_lower:
-        return base_prompt + """
-        Kategorie: Netzteil
-        
-        ERSTELLE EIN HIERARCHISCHES JSON (Nested).
-        
-        WICHTIG:
-        1. Zertifizierung GENAU angeben (z.B. "80 PLUS Gold").
-        2. Stecker GENAU zählen (z.B. "4 x 8-poliger PCI Express (6+2-polig)").
-        3. Lüftergröße in mm (z.B. 135 mm).
-        
-        Benötigte JSON-Struktur:
-        {
-            "Allgemein": {
-                "Gerätetyp": "Netzteil - aktive Power Factor Correction (PFC) - intern",
-                "Spezifikationseinhaltung": "z.B. ATX12V 3.0 / EPS12V 2.92",
-                "Netzteil-Formfaktor": "z.B. ATX",
-                "Farbe": "z.B. Schwarz",
-                "Lokalisierung": "z.B. Europa"
-            },
-            "Stromversorgungsgerät": {
-                "Eingangsspannung": "z.B. WS 100-240 V",
-                "Nötige Frequenz": "z.B. 50 - 60 Hz",
-                "Angaben zu Ausgangsleistungsanschlüssen": "Liste (z.B. 1 x Strom 24-poliges ATX, 2 x Strom 8-poliges EPS12V, 4 x 8-poliger PCI Express Power)",
-                "Leistungskapazität": "z.B. 1000 Watt",
-                "Effizienz": "z.B. 92%",
-                "80-PLUS-Zertifizierung": "z.B. 80 PLUS Gold"
-            },
-            "Verschiedenes": {
-                "Zubehör im Lieferumfang": "z.B. Kabelbinder, Schrauben",
-                "MTBF": "z.B. 100.000 Stunden",
-                "Kühlsystem": "z.B. 120-mm-Lüfter",
-                "Besonderheiten": "z.B. OVP, UVP, SCP, OCP, OTP"
-            },
-            "Abmessungen und Gewicht": {
-                "Breite": "cm",
-                "Tiefe": "cm",
-                "Höhe": "cm",
-                "Gewicht": "kg"
-            }
-        }
-        """
-
-    # === 2. PROZESSOR / CPU (JTL-Optimiert) ===
-    elif "prozessor" in cat_lower or "cpu" in cat_lower:
+    elif "prozessor" in cat_lower:
         return base_prompt + """
         Kategorie: Prozessor
-        
-        ERSTELLE EIN HIERARCHISCHES JSON (Nested).
+         ERSTELLE EIN HIERARCHISCHES JSON (Nested).
         
         ANWEISUNG ZU TAKTRATEN (Intel/Hybrid):
         Wenn es unterschiedliche Kerne gibt (Performance/Efficiency), gib die Taktraten und Anzahl getrennt an.
@@ -223,11 +293,9 @@ def get_prompt_by_category(product_name, gtin):
         }
         """
 
-    # === 3. GRAFIKKARTE / GPU (JTL-Optimiert) ===
-    elif "grafik" in cat_lower or "gpu" in cat_lower or "vga" in cat_lower:
+    elif "grafikkarte" in cat_lower:
         return base_prompt + """
         Kategorie: Grafikkarte
-        
         ERSTELLE EIN HIERARCHISCHES JSON (Nested).
         
         WICHTIG ZU ABMESSUNGEN: Gib alle Maße in 'mm' an.
@@ -270,11 +338,9 @@ def get_prompt_by_category(product_name, gtin):
         }
         """
 
-    # === 4. MAINBOARD (High-Detail & Zähl-Optimiert) ===
-    elif "mainboard" in cat_lower or "motherboard" in cat_lower or "board" in cat_lower:
+    elif "mainboard" in cat_lower:
         return base_prompt + """
         Kategorie: Mainboard
-        
         ERSTELLE EIN HIERARCHISCHES JSON (Nested).
         
         WICHTIG ZU ANSCHLÜSSEN (Zwingend beachten!):
@@ -327,11 +393,9 @@ def get_prompt_by_category(product_name, gtin):
         }
         """
 
-    # === 5. ARBEITSSPEICHER / RAM (JTL-Optimiert) ===
-    elif "ram" in cat_lower or "memory" in cat_lower:
+    elif "arbeitsspeicher" in cat_lower or "ram" in cat_lower:
         return base_prompt + """
         Kategorie: RAM
-        
         ERSTELLE EIN HIERARCHISCHES JSON (Nested) passend zur JTL-Vorlage.
         
         ANWEISUNG ZU "RAM-LEISTUNG":
@@ -368,12 +432,10 @@ def get_prompt_by_category(product_name, gtin):
             }
         }
         """
-        
-    # === 6. SPEICHERMEDIEN (SSD/HDD) ===
-    elif "ssd" in cat_lower or "hdd" in cat_lower or "festplatte" in cat_lower or "hard drive" in cat_lower:
+
+    elif "speicher" in cat_lower or "ssd" in cat_lower or "hdd" in cat_lower:
         return base_prompt + """
-        Kategorie: Speicher
-        
+        Kategorie: Speicher (SSD/HDD)
         ERSTELLE EIN HIERARCHISCHES JSON (Nested).
         
         WICHTIG ZU TYP:
@@ -408,90 +470,11 @@ def get_prompt_by_category(product_name, gtin):
                 "Höhe": "mm"
             }
         }
-        """   
-        
-    # === 7. MONITOR / TFT (JTL-Optimiert) ===
-    elif "monitor" in cat_lower or "display" in cat_lower or "bildschirm" in cat_lower or "tft" in cat_lower:
-        return base_prompt + """
-        Kategorie: Monitor
-        
-        ERSTELLE EIN HIERARCHISCHES JSON (Nested).
-        
-        WICHTIG ZU AUFLÖSUNG: Gib das Format "BxH" an (z.B. 1920x1080).
-        WICHTIG ZU ANSCHLÜSSEN: Zähle die Ports genau (z.B. 2 x HDMI, 1 x DisplayPort).
-        
-        Benötigte JSON-Struktur:
-        {
-            "Allgemein": {
-                "Gerätetyp": "z.B. LED-hintergrundbeleuchteter LCD-Monitor",
-                "Modell": "z.B. Odyssey G5",
-                "Farbe": "z.B. Schwarz"
-            },
-            "Display": {
-                "Diagonale": "z.B. 27 Zoll (oder 68.6 cm)",
-                "Auflösung": "z.B. 2560 x 1440 (WQHD)",
-                "Bildwiederholrate": "z.B. 144 Hz",
-                "Reaktionszeit": "z.B. 1 ms (MPRT)",
-                "Panel-Typ": "z.B. IPS oder VA",
-                "Helligkeit": "z.B. 300 cd/m²",
-                "Kontrast": "z.B. 1000:1"
-            },
-            "Schnittstellen": {
-                "Anschlüsse": "Liste (z.B. 1 x DisplayPort 1.2, 2 x HDMI 2.0, 1 x Kopfhörer)"
-            },
-            "Verschiedenes": {
-                "Besonderheiten": "z.B. AMD FreeSync Premium, Höhenverstellbar, Pivot",
-                "Zubehör": "z.B. HDMI-Kabel, Stromkabel"
-            },
-            "Energieversorgung": {
-                "Stromverbrauch SDR (Eingeschaltet)": "z.B. 25 kWh/1000h",
-                "Energieeffizienzklasse": "z.B. Klasse F"
-            }
-        }
-        """    
-
-    # === 8. GEHÄUSELÜFTER / FAN (JTL-Optimiert) ===
-    elif "lüfter" in cat_lower or "fan" in cat_lower or "cooling" in cat_lower:
-        return base_prompt + """
-        Kategorie: Gehäuselüfter
-        
-        ERSTELLE EIN HIERARCHISCHES JSON (Nested).
-        
-        SPEZIAL-ANWEISUNG FÜR "NEUTRAL" / GENERISCHE ARTIKEL:
-        Wenn der Artikel "Neutral" oder keinen Markennamen hat:
-        1. Suche NICHT im Internet nach Datenblättern.
-        2. Leite die Größe aus dem Namen ab (z.B. "120x120" -> 120 mm).
-        3. Fülle den Rest mit plausiblen Standardwerten (Schwarz, 1200 rpm, 3-Pin/4-Pin).
-        
-        Benötigte JSON-Struktur:
-        {
-            "Allgemein": {
-                "Gerätetyp": "Gehäuselüfter",
-                "Modell": "z.B. Generic 120mm",
-                "Farbe": "z.B. Schwarz",
-                "Paketmenge": "1"
-            },
-            "Technische Daten": {
-                "Lüfterdurchmesser": "z.B. 120 mm",
-                "Lüfterhöhe": "z.B. 25 mm",
-                "Rotationsgeschwindigkeit": "z.B. 1200 rpm",
-                "Luftstrom": "N/A",
-                "Geräuschpegel": "z.B. 25 dBA",
-                "Lager": "Gleitlager"
-            },
-            "Anschlüsse & Features": {
-                "Stromanschluss": "3-Pin / 4-Pin PWM",
-                "Beleuchtung": "Keine",
-                "Besonderheiten": "N/A"
-            }
-        }
         """
-        
-    # === 9. GEHÄUSE / CASE (JTL-Optimiert) ===
-    elif "gehäuse" in cat_lower or "case" in cat_lower or "tower" in cat_lower:
+
+    elif "gehäuse" in cat_lower:
         return base_prompt + """
         Kategorie: Gehäuse
-        
         ERSTELLE EIN HIERARCHISCHES JSON (Nested).
         
         WICHTIG ZU MAßEN: Gib alle Längen/Höhen in 'mm' an.
@@ -535,10 +518,11 @@ def get_prompt_by_category(product_name, gtin):
                 "Gewicht": "kg"
             }
         }
-        """     
+        """
 
     else:
+        # Fallback für alles, was wir noch nicht definiert haben
         return base_prompt + """
         Identifiziere die Kategorie selbst.
-        Erstelle ein sinnvolles, hierarchisches JSON mit Überschriften wie "Allgemein", "Technische Daten", "Verschiedenes".
+        Erstelle ein sinnvolles, hierarchisches JSON.
         """
