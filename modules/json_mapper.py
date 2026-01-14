@@ -36,6 +36,27 @@ class MarvinMapper:
         for p in patterns:
             clean = re.sub(p, ' ', clean, flags=re.IGNORECASE)
         return " ".join(clean.split())
+    
+    def _extract_value_with_unit(self, text, unit_regex):
+        """
+        Sucht gezielt nach einer Zahl, die VOR einer bestimmten Einheit steht.
+        Verhindert Fehler wie '2 x 120mm', wo '2' statt '120' gefunden wurde.
+        
+        Args:
+            text (str): Der zu durchsuchende Text.
+            unit_regex (str): Regex für die Einheit (z.B. r'mm|cm' oder r'W|Watt').
+        """
+        if not text: return 0.0
+        
+        # Muster: Zahl (mit optionaler Komma/Punkt) + optional Leerzeichen + Einheit
+        # Beispiel: "150 Watt", "16.5mm", "120 mm"
+        pattern = fr'(\d+([.,]\d+)?)\s*({unit_regex})'
+        match = re.search(pattern, str(text), re.IGNORECASE)
+        
+        if match:
+            val_str = match.group(1).replace(',', '.')
+            return float(val_str)
+        return 0.0
 
     # ==========================================
     # 🐏 RAM MAPPER 
@@ -877,6 +898,86 @@ class MarvinMapper:
                 "Hardware": 0
             }
         }
+        
+    def map_cpu_cooler(self, data, html_content=""):
+        """Mapping für Warengruppe 9: CPU-Kühler"""
+        allg = data.get("Allgemein", {})
+        komp = data.get("Kompatibilität", {})
+        tech = data.get("Technische Daten", {})
+        feat = data.get("Beleuchtung & Features", {})
+        p_name = data.get("Produktname", data.get("_Produktname", ""))
+
+        # 1. Typ Bestimmung (Luft vs AiO)
+        is_aio = "aio" in str(allg).lower() or "wasser" in str(allg).lower() or "liquid" in p_name.lower()
+        
+        # 2. Bauhöhe (Nutze neuen Smart-Extraktor!)
+        # JTL 'cpukuehler_bauhoehe' in mm
+        height_mm = self._extract_value_with_unit(tech.get("Bauhöhe (nur Kühler)", ""), "mm")
+        
+        # Fallback für AiO: Wenn keine Block-Höhe da ist, nehmen wir oft 0 oder einen Standardwert,
+        # da AiOs fast immer auf die CPU passen. Für Luftkühler ist der Wert kritisch.
+        if is_aio and height_mm == 0:
+            height_mm = 55 # Ca. Standard Pumpenhöhe, damit JTL nicht meckert
+            
+        # 3. Sockel & Typ-Logik
+        sockets_str = str(komp.get("Sockel", ""))
+        sockets_clean = sockets_str.replace("[", "").replace("]", "").replace("'", "")
+        
+        # Typ Berechnung: 1=AMD, 2=Intel, 3=Beide
+        has_amd = "AM" in sockets_clean.upper() or "FM" in sockets_clean.upper()
+        has_intel = "LGA" in sockets_clean.upper() or "1700" in sockets_clean or "1200" in sockets_clean
+        
+        cpu_kuehler_typ = 0
+        if has_amd and has_intel: cpu_kuehler_typ = 3
+        elif has_intel: cpu_kuehler_typ = 2
+        elif has_amd: cpu_kuehler_typ = 1
+        
+        # 4. RGB Logik
+        rgb_text = str(feat) + " " + p_name
+        rgb_val = 1 if "RGB" in rgb_text else 0
+        argb_val = 1 if "ARGB" in rgb_text or "Addressable" in rgb_text else 0
+        
+        # 5. TDP
+        tdp = int(self._extract_value_with_unit(allg.get("TDP-Klasse", ""), "W|Watt"))
+        
+        # 6. Shortname Bauen
+        # Ziel: "Be quiet! Dark Rock Pro 5 270W TDP" oder "Corsair H150i Elite 360mm AiO"
+        rad_size = self._extract_value_with_unit(tech.get("Radiatorgröße", ""), "mm")
+        
+        suffix = ""
+        if is_aio and rad_size > 0:
+            suffix = f"{int(rad_size)}mm AiO"
+        elif tdp > 0:
+            suffix = f"{tdp}W TDP"
+            
+        remove_list = ["CPU-Kühler", "Cooler", "Wasserkühlung", "Liquid", "All-in-One", "TDP", "Watt"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        short_name = f"{brand_clean} {suffix}".strip()
+        
+        return {
+            "kWarengruppe": 9,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "cpukuehler_bauhoehe": int(height_mm),
+                "tdp": tdp,
+                "rgb": rgb_val,
+                "argb": argb_val,
+                "rgb_anschluss_4pin_rgb": rgb_val,   # Annahme: Wenn RGB, dann meist Header da
+                "rgb_anschluss_3pin_argb": argb_val, # Annahme: Wenn ARGB, dann Header da
+                "cpukuehler_typ": cpu_kuehler_typ,
+                "board_cpukuehler_sockel": sockets_clean[:255], # JTL Limit beachten
+                "cpukuehler_breite": 1, # Standard: Passt fast immer (außer riesige Dinger)
+                "silent": 1 if "silent" in str(data).lower() or "quiet" in p_name.lower() else 0,
+                
+                # Standards
+                "konfiggruppen_typ": "CPU-Kühler",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }    
     
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
@@ -994,7 +1095,16 @@ class MarvinMapper:
                 print(f"   ❌ Fehler im Fan-Mapping für {filename}: {e}")
                 return
         
-        # Unser Fallback für jeden Kategorie die oben nicht gelistet ist (oder nicht erkannt wurde)
+        # 10. CPU-KÜHLER CHECK (WG 9)
+        elif "bauhöhe" in json_str or "radiatorgröße" in json_str or "kühler" in filename.lower():
+             try:
+                marvin_json = self.map_cpu_cooler(data, html_content)
+                found_category = True
+                cat_debug = "CPU-Kühler"
+             except Exception as e:
+                print(f"   ❌ Fehler im Kühler-Mapping für {filename}: {e}")
+                return  
+        
         else:
             print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")
             return

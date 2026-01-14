@@ -491,7 +491,43 @@ def get_prompt_by_category(product_name, gtin):
                 "Gewicht": "kg"
             }
         }
-        """    
+        """   
+        
+    # === 10. CPU-KÜHLER / AIO (WG 9) ===
+    elif "kühler" in cat_lower or "cooler" in cat_lower or "wasserkühlung" in cat_lower or "aio" in cat_lower:
+        return base_prompt + """
+        Kategorie: CPU-Kühler (Luft oder AiO Wasserkühlung)
+        
+        ERSTELLE EIN HIERARCHISCHES JSON.
+        
+        WICHTIG: 
+        1. Unterscheide Typ: "Luftkühler" oder "AiO Wasserkühlung".
+        2. Sockel: Liste ALLE kompatiblen Sockel auf (z.B. AM4, AM5, LGA1700).
+        3. Maße: Bei Luftkühlern ist die HÖHE (mm) extrem wichtig. Bei AiO die RADIATOR-GRÖSSE.
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Luftkühler oder AiO Wasserkühlung",
+                "Modell": "z.B. Dark Rock Pro 5",
+                "TDP-Klasse": "z.B. 250 Watt (oder N/A)"
+            },
+            "Kompatibilität": {
+                "Sockel": "Liste (z.B. AM4, AM5, LGA115x, LGA1200, LGA1700, LGA1851)"
+            },
+            "Technische Daten": {
+                "Bauhöhe (nur Kühler)": "z.B. 165 mm (Wichtig für Gehäuse!)",
+                "Radiatorgröße": "z.B. 240 mm, 360 mm (Nur bei AiO, sonst N/A)",
+                "Lüftergröße": "z.B. 120 mm",
+                "Lautstärke": "z.B. 24.3 dBA"
+            },
+            "Beleuchtung & Features": {
+                "Beleuchtung": "z.B. ARGB, RGB oder Keine",
+                "Anschluss": "z.B. 4-Pin PWM, 3-Pin ARGB",
+                "Besonderheiten": "z.B. Display, Silent Wings Lüfter"
+            }
+        }
+        """     
 
     else:
         return base_prompt + """
