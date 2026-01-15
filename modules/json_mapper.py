@@ -452,7 +452,7 @@ class MarvinMapper:
         }
         
     def map_psu(self, data, html_content=""):
-        """Mapping für Warengruppe 6: Netzteile (Fix: Stecker zählen)"""
+        """Mapping für Warengruppe 6: Netzteile (Fix: List-Handling)"""
         allg = data.get("Allgemein", {})
         strom = data.get("Stromversorgungsgerät", {})
         vers = data.get("Verschiedenes", {})
@@ -460,13 +460,13 @@ class MarvinMapper:
 
         # 1. Leistung & Lüfter
         watt = self.extract_number(strom.get("Leistungskapazität", "0"))
-        fan_str = vers.get("Kühlsystem", "")
+        fan_str = str(vers.get("Kühlsystem", "")) # Sicherstellen, dass String
         fan_mm = self.extract_number(fan_str)
         if fan_mm > 0 and fan_mm < 20: fan_mm *= 10
         if fan_mm == 0: fan_mm = 120 
 
         # 2. 80 PLUS Zertifikat
-        cert_raw = strom.get("80-PLUS-Zertifizierung", "").upper()
+        cert_raw = str(strom.get("80-PLUS-Zertifizierung", "")).upper()
         cert_str = "Standard"
         cert_int = 0
         
@@ -478,15 +478,18 @@ class MarvinMapper:
         elif "80 PLUS" in cert_raw: cert_str, cert_int = "Standard", 0
 
         # 3. Anschlüsse (PCIe SUMMIEREN!)
+        # FIX: Falls die KI eine Liste liefert (z.B. [{"Spannung":...}]), machen wir einen String daraus
         conns = strom.get("Angaben zu Ausgangsleistungsanschlüssen", "")
+        if isinstance(conns, list) or isinstance(conns, dict):
+            conns = json.dumps(conns) # Konvertiere komplexe Struktur in String für Regex
+        else:
+            conns = str(conns)
         
         has_p8 = 1 if "EPS" in conns or "CPU" in conns else 1
         has_p4 = 1 if "4-polig" in conns and "ATX12V" in conns else 0
         
         # PCIe Summier-Logik
         pcie_count = 0
-        # Suche nach Mustern wie "4 x 8-poliger PCI" oder "1 x PCIe"
-        # Wir splitten den String erst, um Verwirrung zu vermeiden
         conn_parts = re.split(r'[¦,\n]', conns)
         for part in conn_parts:
             if "PCI" in part or "GPU" in part or "Grafik" in part:
@@ -494,7 +497,6 @@ class MarvinMapper:
                 if match:
                     pcie_count += int(match.group(1))
         
-        # Fallback wenn Regex versagt, aber Wattzahl hoch ist
         if pcie_count == 0:
             if watt >= 1000: pcie_count = 6
             elif watt >= 850: pcie_count = 4
@@ -527,7 +529,7 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }    
+        }   
     
     def map_case(self, data, html_content=""):
         """Mapping für Warengruppe 3: Gehäuse"""
