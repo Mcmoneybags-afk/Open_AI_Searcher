@@ -242,6 +242,40 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
             "Abmessungen und Gewicht": { "Breite": "mm", "Höhe": "mm", "Tiefe": "mm" }
         }
         """
+        
+    elif "eingabegeräte" in cat_lower or "tastatur" in cat_lower or "maus" in cat_lower or "keyboard" in cat_lower or "mouse" in cat_lower:
+        return base_prompt + """
+        Kategorie: Eingabegeräte (Maus, Tastatur, Sets)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Identifiziere den Typ: Maus, Tastatur, Desktop-Set, Keypad, etc.
+        2. Verbindung: Kabelgebunden (USB) oder Kabellos (Funk/Bluetooth/Wireless).
+        3. Layout: Falls Tastatur, welches Layout (DE/QWERTZ, US/QWERTY)?
+        4. Farbe: Wichtig für den Namen.
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "z.B. Tastatur, Maus oder Desktop-Set",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Konnektivität": {
+                "Anschlusstechnik": "Verkabelt / Kabellos",
+                "Schnittstelle": "z.B. USB, Bluetooth, 2.4 GHz"
+            },
+            "Technische Daten": {
+                "Layout": "z.B. Deutsch (QWERTZ) oder N/A",
+                "Tastenschalter": "z.B. Cherry MX Red (nur bei Tastatur)",
+                "Bewegungsauflösung": "z.B. 16000 dpi (nur bei Maus)",
+                "Anzahl Tasten": "Anzahl"
+            },
+            "Verschiedenes": {
+                "Besonderheiten": "z.B. Beleuchtung (RGB), Ergonomisch"
+            }
+        }
+        """    
 
     else:
         return base_prompt + """

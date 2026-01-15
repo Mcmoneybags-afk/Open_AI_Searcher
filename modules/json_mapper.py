@@ -1003,7 +1003,65 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }     
+        }  
+        
+    def map_input_devices_wg14(self, data, html_content=""):
+        """Mapping für Warengruppe 14: Eingabegeräte (Generisch)"""
+        # Da WG 14 keine technischen Felder hat, bauen wir einen starken Shortname.
+        
+        allg = data.get("Allgemein", {})
+        conn = data.get("Konnektivität", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+        
+        dev_type = allg.get("Gerätetyp", "Eingabegerät")
+        connection = str(conn.get("Anschlusstechnik", ""))
+        interface = str(conn.get("Schnittstelle", ""))
+        layout = str(tech.get("Layout", ""))
+        color = allg.get("Farbe", "")
+        
+        # Features für Shortname sammeln
+        features = []
+        
+        # 1. Verbindung (Wireless vs USB)
+        if "kabellos" in connection.lower() or "wireless" in connection.lower() or "bluetooth" in connection.lower() or "bluetooth" in interface.lower():
+            features.append("Wireless")
+        elif "verkabelt" in connection.lower() or "usb" in connection.lower() or "kabel" in connection.lower():
+            features.append("USB")
+            
+        # 2. Layout (nur bei Tastaturen relevant)
+        if "Deutsch" in layout or "DE" in layout or "QWERTZ" in layout:
+            features.append("DE")
+        elif "US" in layout or "QWERTY" in layout:
+            features.append("US")
+            
+        # 3. Farbe
+        if color and color != "N/A":
+            features.append(color)
+
+        feature_str = " ".join(features)
+        
+        # Bereinigung des Markennamens
+        remove_list = ["Eingabegerät", "Tastatur", "Maus", "Keyboard", "Mouse", "Gaming", "Desktop", "Set"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        # Shortname: "Logitech K120 Tastatur USB DE Schwarz"
+        short_name = f"{brand_clean} {dev_type} {feature_str}".strip()
+        # Doppelte Leerzeichen entfernen
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 14, # WG 14
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Eingabegeräte",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+                # Keine weiteren Attribute vorhanden laut Tabelle
+            }
+        }       
     
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
@@ -1139,7 +1197,17 @@ class MarvinMapper:
                 cat_debug = "Kühler (WG12)"
              except Exception as e:
                 print(f"   ❌ Fehler im WG12-Mapping: {e}")
-                return    
+                return   
+            
+        # WG 14 CHECK
+        elif cat_debug == "Eingabegeräte" or "tastatur" in json_str or "maus" in json_str or "eingabegerät" in json_str:
+             try:
+                marvin_json = self.map_input_devices_wg14(data, html_content)
+                found_category = True
+                cat_debug = "Eingabegeräte (WG14)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG14-Mapping: {e}")
+                return     
         
         else:
             print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")

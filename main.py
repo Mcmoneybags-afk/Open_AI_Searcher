@@ -48,6 +48,7 @@ FOLDER_MAPPING = {
     "12_Kuehler": "Kühler",
     "13_Speichermedien": "Speicher",
     "13_Speicher": "Speicher",
+    "14_Eingabegeraete": "Eingabegeräte",
     "35_Maeuse": "Eingabegeräte", 
     "34_Tastaturen": "Eingabegeräte",
     "15_Kabel": "Kabel"
