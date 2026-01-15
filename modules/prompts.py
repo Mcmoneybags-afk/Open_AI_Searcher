@@ -304,8 +304,41 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Besonderheiten": "z.B. Vergoldete Kontakte, Geschirmt"
             }
         }
-        """     
+        """ 
+        
+    elif "soundkarte" in cat_lower or "sound card" in cat_lower or "audio interface" in cat_lower:
+        return base_prompt + """
+        Kategorie: Soundkarte
+        ERSTELLE EIN HIERARCHISCHES JSON.
 
+        WICHTIG:
+        1. Schnittstelle: Intern (PCIe/PCI) oder Extern (USB).
+        2. Formfaktor: Prüfe explizit auf "Low Profile" (für schmale Gehäuse).
+        3. Kanäle: 5.1, 7.1, Stereo.
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Soundkarte (Intern/Extern)",
+                "Modell": "Name",
+                "Schnittstelle": "z.B. PCIe x1 oder USB 2.0"
+            },
+            "Audio": {
+                "Soundmodus": "z.B. 5.1 Surround oder 7.1",
+                "Auflösung": "z.B. 32-bit / 384 kHz",
+                "Rauschabstand (SNR)": "z.B. 122 dB"
+            },
+            "Technische Daten": {
+                "Low Profile": "Ja oder Nein (bzw. Low Profile Slotblech im Lieferumfang)",
+                "Chipsatz": "z.B. Creative Sound Core3D"
+            },
+            "Anschlüsse": {
+                "Eingänge": "Liste (Mikrofon, Line-In)",
+                "Ausgänge": "Liste (Kopfhörer, Optisch/Toslink)"
+            }
+        }
+        """        
+    #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:
         return base_prompt + """
         Identifiziere die Kategorie selbst.

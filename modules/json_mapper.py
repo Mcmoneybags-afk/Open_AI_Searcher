@@ -1120,7 +1120,53 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }          
+        }  
+        
+    def map_soundcard_wg16(self, data, html_content=""):
+        """Mapping für Warengruppe 16: Soundkarten"""
+        allg = data.get("Allgemein", {})
+        audio = data.get("Audio", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Low Profile Check (Das einzige technische Feld laut Tabelle)
+        lp_str = str(tech.get("Low Profile", "")).lower()
+        # Prüfen ob 'ja' drin steht oder ob 'low profile' im Namen vorkommt
+        is_lp = 1 if "ja" in lp_str or "yes" in lp_str or "low profile" in p_name.lower() or "lp" in p_name.lower().split() else 0
+
+        # 2. Shortname Info
+        interface = allg.get("Schnittstelle", "")
+        # Bereinigung: "PCI Express" -> "PCIe" für kürzeren Namen
+        if "express" in interface.lower(): interface = "PCIe"
+        if "usb" in interface.lower(): interface = "USB"
+
+        channels = audio.get("Soundmodus", "")
+        # Versuche "5.1" oder "7.1" zu finden
+        chan_short = ""
+        if "7.1" in channels: chan_short = "7.1"
+        elif "5.1" in channels: chan_short = "5.1"
+        elif "stereo" in channels.lower(): chan_short = "Stereo"
+
+        # Shortname: "Creative Sound Blaster AE-7 PCIe 7.1"
+        remove_list = ["Soundkarte", "Audio", "Interface", "Internal", "External", "Hi-Res", "Gaming", "PCIe", "USB", "Sound", "Card"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+
+        short_name = f"{brand_clean} {interface} {chan_short}".strip()
+        # Doppelte Leerzeichen entfernen
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 16,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "low_profile": is_lp,
+                "konfiggruppen_typ": "Soundkarten",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }            
     
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
@@ -1277,6 +1323,16 @@ class MarvinMapper:
              except Exception as e:
                 print(f"   ❌ Fehler im WG15-Mapping für {filename}: {e}")
                 return        
+        
+        # WG 16 CHECK (SOUNDKARTEN)
+        elif cat_debug == "Soundkarte" or "soundkarte" in json_str or "sound card" in json_str:
+             try:
+                marvin_json = self.map_soundcard_wg16(data, html_content)
+                found_category = True
+                cat_debug = "Soundkarte (WG16)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG16-Mapping für {filename}: {e}")
+                return
         
         else:
             print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")

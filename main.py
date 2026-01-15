@@ -50,6 +50,7 @@ FOLDER_MAPPING = {
     "13_Speicher": "Speicher",
     "14_Eingabegeraete": "Eingabegeräte",
     "15_Kabel_Adapter": "Kabel",
+    "16_Soundkarten": "Soundkarte",
     "35_Maeuse": "Eingabegeräte", 
     "34_Tastaturen": "Eingabegeräte",
     
