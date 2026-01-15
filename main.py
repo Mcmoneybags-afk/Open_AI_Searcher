@@ -45,6 +45,7 @@ FOLDER_MAPPING = {
     "10_TFTs": "Monitor",
     "10_Monitore": "Monitor",
     "11_Gehaeuseluefter": "Gehäuselüfter",
+    "12_Kuehler": "Kühler",
     "13_Speichermedien": "Speicher",
     "13_Speicher": "Speicher",
     "35_Maeuse": "Eingabegeräte", 

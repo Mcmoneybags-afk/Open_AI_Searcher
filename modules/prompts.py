@@ -99,6 +99,35 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
             "Beleuchtung & Features": { "Beleuchtung": "ARGB", "Anschluss": "PWM" }
         }
         """
+        
+    elif "kühler" in cat_lower and "cpu" not in cat_lower: # Speziell für WG 12 "Kühler"
+        return base_prompt + """
+        Kategorie: Kühler (CPU/Allgemein)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+        
+        WICHTIG:
+        1. Identifiziere Sockel-Kompatibilität (z.B. AM4, LGA1700).
+        2. Identifiziere die Bauhöhe in mm.
+        3. Bestimme, ob für AMD, Intel oder beide.
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Kühler",
+                "Modell": "Name"
+            },
+            "Kompatibilität": {
+                "Sockel": "Liste (z.B. AM4, AM5, LGA115x, LGA1200, LGA1700)"
+            },
+            "Technische Daten": {
+                "Bauhöhe (nur Kühler)": "mm (Wichtig!)",
+                "Lüftergröße": "mm"
+            },
+            "Verschiedenes": {
+                "Besonderheiten": "Features"
+            }
+        }
+        """    
 
     elif "gehäuselüfter" in cat_lower:
         return base_prompt + """

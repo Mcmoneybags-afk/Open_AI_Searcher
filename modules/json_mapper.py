@@ -960,7 +960,50 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }   
+        }  
+    
+    def map_cooler_wg12(self, data, html_content=""):
+        """Mapping für Warengruppe 12: Kühler (Legacy/Generic)"""
+        komp = data.get("Kompatibilität", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Bauhöhe
+        height_mm = self._extract_value_with_unit(tech.get("Bauhöhe (nur Kühler)", ""), "mm")
+        
+        # 2. Sockel & Typ (AMD/Intel Logik wie bei WG 9)
+        sockets_str = str(komp.get("Sockel", ""))
+        sockets_clean = sockets_str.replace("[", "").replace("]", "").replace("'", "")
+        
+        has_amd = "AM" in sockets_clean.upper() or "FM" in sockets_clean.upper()
+        has_intel = "LGA" in sockets_clean.upper() or "1700" in sockets_clean or "1200" in sockets_clean
+        
+        cpu_kuehler_typ = 0
+        if has_amd and has_intel: cpu_kuehler_typ = 3
+        elif has_intel: cpu_kuehler_typ = 2
+        elif has_amd: cpu_kuehler_typ = 1
+
+        # 3. Shortname
+        # Wir entfernen generische Begriffe
+        remove_list = ["Kühler", "Cooler", "CPU", "Prozessor"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        short_name = f"{brand_clean} {int(height_mm)}mm".strip()
+
+        return {
+            "kWarengruppe": 12, # WICHTIG: WG 12
+            "Attribute": {
+                "shortNameLang": short_name,
+                "cpukuehler_bauhoehe": int(height_mm),
+                "cpukuehler_breite": 1, # Standard: Passt
+                "cpukuehler_typ": cpu_kuehler_typ,
+                "board_cpukuehler_sockel": sockets_clean[:255],
+                "konfiggruppen_typ": "Kühler", # Wie in der Tabelle benannt
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }     
     
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
@@ -1087,6 +1130,16 @@ class MarvinMapper:
              except Exception as e:
                 print(f"   ❌ Fehler im Kühler-Mapping für {filename}: {e}")
                 return
+            
+        # 11. KÜHLER  (WG 12)
+        elif cat_debug == "Kühler" or ("kühler" in json_str and "cpu-kühler" not in json_str):
+             try:
+                marvin_json = self.map_cooler_wg12(data, html_content)
+                found_category = True
+                cat_debug = "Kühler (WG12)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG12-Mapping: {e}")
+                return    
         
         else:
             print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")
