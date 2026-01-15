@@ -1266,7 +1266,17 @@ class MarvinMapper:
                 cat_debug = "Eingabegeräte (WG14)"
              except Exception as e:
                 print(f"   ❌ Fehler im WG14-Mapping: {e}")
-                return     
+                return 
+            
+        # WG 15 CHECK (KABEL)
+        elif cat_debug == "Kabel" or "kabel" in json_str or "adapter" in json_str or "anschluss a" in json_str:
+             try:
+                marvin_json = self.map_cables_wg15(data, html_content)
+                found_category = True
+                cat_debug = "Kabel (WG15)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG15-Mapping für {filename}: {e}")
+                return        
         
         else:
             print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")
