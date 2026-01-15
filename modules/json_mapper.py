@@ -11,7 +11,6 @@ class MarvinMapper:
     def extract_number(self, text):
         """Holt die erste Ganzzahl (Integer) aus einem String"""
         if not text or text == "N/A": return 0
-        # Entfernt Tausendertrennzeichen für sauberes Parsing
         clean_text = str(text).replace('.', '').replace(',', '.')
         match = re.search(r'(\d+)', clean_text)
         return int(match.group(1)) if match else 0
@@ -21,7 +20,6 @@ class MarvinMapper:
         if not text or text == "N/A": return 0.0
         # Ersetze Komma durch Punkt für Python
         clean_text = str(text).replace(',', '.')
-        # Suche nach Zahlen mit optionalem Punkt (z.B. 3.2 oder 5)
         match = re.search(r'(\d+\.\d+|\d+)', clean_text)
         return float(match.group(1)) if match else 0.0
 
@@ -1420,7 +1418,7 @@ class MarvinMapper:
                 return
             
         # WG 17 CHECK (AUDIO GERAETE)
-        elif cat_debug == "Audio" or "mikrofon" in json_str or "microphone" in json_str or "audio interface" in json_str:
+        elif (cat_debug == "Audio" or "mikrofon" in json_str or "microphone" in json_str) and "webcam" not in json_str:
              try:
                 marvin_json = self.map_audio_wg17(data, html_content)
                 found_category = True
