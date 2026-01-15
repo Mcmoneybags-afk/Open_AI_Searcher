@@ -1166,7 +1166,92 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }            
+        } 
+        
+    def map_audio_wg17(self, data, html_content=""):
+        """Mapping für Warengruppe 17: Audio Ein-/Ausgabe (Mikros, Interfaces)"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Low Profile Check (Standard-Feld in dieser WG)
+        lp_str = str(tech.get("Low Profile", "")).lower()
+        is_lp = 1 if "ja" in lp_str or "yes" in lp_str or "low profile" in p_name.lower() else 0
+
+        # 2. Shortname Bauen
+        dev_type = allg.get("Gerätetyp", "Audio-Gerät")
+        interface = tech.get("Schnittstelle", "")
+        
+        # Bereinigung Schnittstelle
+        if "USB" in interface: interface = "USB"
+        elif "XLR" in interface: interface = "XLR"
+        elif "PCI" in interface: interface = "PCIe"
+        
+        # Bereinigung Markenname (Liste von generischen Begriffen)
+        remove_list = ["Audio", "Gerät", "Mikrofon", "Microphone", "Interface", "USB", "XLR", "Kondensator", "Streaming"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        # Shortname: "Elgato Wave:3 Mikrofon USB Schwarz"
+        short_name = f"{brand_clean} {dev_type} {interface}".strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 17,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "low_profile": is_lp,
+                "konfiggruppen_typ": "Audio", # Oder "Mikrofon" / "Interface" je nach Bedarf, hier generisch
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }  
+        
+    def map_webcam_wg18(self, data, html_content=""):
+        """Mapping für Warengruppe 18: Webcams"""
+        allg = data.get("Allgemein", {})
+        video = data.get("Video", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Auflösung extrahieren (4K, 1080p, 720p)
+        res_str = str(video.get("Max. Auflösung", "")).upper()
+        res_short = ""
+        if "4K" in res_str or "2160" in res_str: res_short = "4K"
+        elif "1080" in res_str or "FULL HD" in res_str or "FHD" in res_str: res_short = "1080p"
+        elif "720" in res_str or "HD" in res_str: res_short = "720p"
+        
+        # 2. FPS extrahieren
+        fps_str = str(video.get("Max. Bildrate", "")).lower()
+        fps_short = ""
+        if "60" in fps_str: fps_short = "60fps"
+        elif "30" in fps_str: fps_short = "30fps"
+        
+        # 3. Shortname Bauen
+        # Ziel: "Logitech C920 HD Pro 1080p 30fps Schwarz"
+        remove_list = ["Webcam", "Kamera", "Camera", "HD", "Full", "UHD", "Pro", "Stream"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        color = allg.get("Farbe", "")
+        if color == "N/A": color = ""
+
+        # Zusammenbauen
+        parts = [brand_clean, res_short, fps_short, "Webcam", color]
+        parts_clean = [p for p in parts if p] # Leere entfernen
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 18,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Webcam",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }                 
     
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
@@ -1332,6 +1417,26 @@ class MarvinMapper:
                 cat_debug = "Soundkarte (WG16)"
              except Exception as e:
                 print(f"   ❌ Fehler im WG16-Mapping für {filename}: {e}")
+                return
+            
+        # WG 17 CHECK (AUDIO GERAETE)
+        elif cat_debug == "Audio" or "mikrofon" in json_str or "microphone" in json_str or "audio interface" in json_str:
+             try:
+                marvin_json = self.map_audio_wg17(data, html_content)
+                found_category = True
+                cat_debug = "Audio (WG17)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG17-Mapping für {filename}: {e}")
+                return    
+        
+        # WG 18 CHECK (WEBCAM)
+        elif cat_debug == "Webcam" or "webcam" in json_str or "1080p" in json_str:
+             try:
+                marvin_json = self.map_webcam_wg18(data, html_content)
+                found_category = True
+                cat_debug = "Webcam (WG18)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG18-Mapping für {filename}: {e}")
                 return
         
         else:

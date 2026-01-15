@@ -337,7 +337,77 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Ausgänge": "Liste (Kopfhörer, Optisch/Toslink)"
             }
         }
+        """   
+    
+    elif "audio" in cat_lower or "mikrofon" in cat_lower or "microphone" in cat_lower or "dac" in cat_lower or "interface" in cat_lower:
+        return base_prompt + """
+        Kategorie: Audio-Geräte (Mikrofone, Interfaces, DACs)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Identifiziere den Gerätetyp (z.B. Kondensator-Mikrofon, USB-Audio-Interface).
+        2. Schnittstelle: USB, XLR, Klinke, PCIe?
+        3. Features: Richtcharakteristik (bei Mikros), Auflösung (bei DACs).
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "z.B. Mikrofon oder Audio-Interface",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Technische Daten": {
+                "Schnittstelle": "z.B. USB-C, XLR, PCIe",
+                "Low Profile": "Ja oder Nein (nur relevant bei internen Karten)",
+                "Frequenzbereich": "z.B. 20 Hz - 20 kHz",
+                "Richtcharakteristik": "z.B. Niere (nur bei Mikros)",
+                "Auflösung": "z.B. 24-bit / 192 kHz"
+            },
+            "Anschlüsse": {
+                "Eingänge": "Liste",
+                "Ausgänge": "Liste"
+            },
+            "Verschiedenes": {
+                "Besonderheiten": "z.B. Mute-Button, RGB, Inkl. Stativ"
+            }
+        }
+        """
+        
+    elif "webcam" in cat_lower or "kamera" in cat_lower or "camera" in cat_lower:
+        return base_prompt + """
+        Kategorie: Webcam
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Identifiziere die MAXIMALE Auflösung (z.B. 1080p, 4K UHD, 720p).
+        2. Identifiziere die Framerate bei max. Auflösung (z.B. 30 fps, 60 fps).
+        3. Identifiziere Anschluss (USB-A, USB-C) und Features (Mikrofon, Autofokus).
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Webcam",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Video": {
+                "Max. Auflösung": "z.B. 1920 x 1080 (Full HD) oder 4K UHD",
+                "Max. Bildrate": "z.B. 60 fps (oder 30 fps)",
+                "Fokus-Einstellung": "z.B. Autofokus oder Fixfokus"
+            },
+            "Audio": {
+                "Mikrofon integriert": "Ja / Nein",
+                "Mikrofon-Typ": "z.B. Stereo oder Mono mit Rauschunterdrückung"
+            },
+            "Konnektivität": {
+                "Schnittstelle": "z.B. USB 2.0 oder USB-C 3.0"
+            },
+            "Verschiedenes": {
+                "Besonderheiten": "z.B. Privacy Cover, Stativgewinde, Ringlicht"
+            }
+        }
         """        
+             
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:
         return base_prompt + """
