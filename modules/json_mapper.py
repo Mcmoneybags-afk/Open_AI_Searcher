@@ -1061,7 +1061,66 @@ class MarvinMapper:
                 "Hardware": 0
                 # Keine weiteren Attribute vorhanden laut Tabelle
             }
-        }       
+        } 
+        
+    def map_cables_wg15(self, data, html_content=""):
+        """Mapping für Warengruppe 15: Kabel & Adapter"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        typ = allg.get("Gerätetyp", "Kabel")
+        conn_a = str(tech.get("Anschluss A", ""))
+        conn_b = str(tech.get("Anschluss B", ""))
+        length = str(tech.get("Länge", ""))
+        standard = str(tech.get("Standard", ""))
+        color = allg.get("Farbe", "")
+
+        # Wir bauen den Namensteil für Anschlüsse
+        # Ziel: "HDMI auf DVI" oder "USB-C zu USB-A"
+        conn_str = ""
+        if conn_a and conn_b and conn_a != "N/A":
+            # Bereinigung einfacher Worte wie "Anschluss" oder "Stecker" für kürzeren Titel
+            c_a_clean = conn_a.replace("Anschluss", "").strip()
+            c_b_clean = conn_b.replace("Anschluss", "").strip()
+            conn_str = f"{c_a_clean} auf {c_b_clean}"
+        elif conn_a and conn_a != "N/A":
+            conn_str = conn_a
+            
+        # Länge formatieren (Leerzeichen weg: 1.5 m -> 1.5m)
+        len_str = ""
+        if length and length != "N/A":
+            len_str = length.replace(" ", "")
+            
+        # Standard dazu (Cat6, HDMI 2.0)
+        std_str = ""
+        if standard and standard != "N/A":
+            std_str = standard
+
+        # Shortname zusammenbauen
+        remove_list = ["Kabel", "Adapter", "Verbindungskabel", "Anschlusskabel"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        # Bsp: "Goobay HDMI auf DVI 1.5m HDMI 1.4 Schwarz"
+        parts = [brand_clean, conn_str, len_str, std_str, typ, color]
+        # Filter leere Teile und 'N/A'
+        parts_clean = [p for p in parts if p and "N/A" not in p]
+        
+        short_name = " ".join(parts_clean).strip()
+        # Doppelte Leerzeichen killen
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 15, # WG 15
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Kabel/Adapter",
+                "Seriennummer": 0, # Kabel haben selten Seriennummern-Pflicht
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }          
     
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)

@@ -275,7 +275,36 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Besonderheiten": "z.B. Beleuchtung (RGB), Ergonomisch"
             }
         }
-        """    
+        """   
+        
+    elif "kabel" in cat_lower or "adapter" in cat_lower or "cable" in cat_lower:
+        return base_prompt + """
+        Kategorie: Kabel & Adapter
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Identifiziere die Anschlüsse GENAU (z.B. HDMI Stecker auf DVI Buchse).
+        2. Identifiziere die Länge (falls Kabel).
+        3. Identifiziere den Standard (z.B. Cat6, HDMI 2.1, USB 3.0).
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Kabel oder Adapter",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Technische Daten": {
+                "Anschluss A": "z.B. HDMI (Stecker)",
+                "Anschluss B": "z.B. DVI-D (Buchse)",
+                "Länge": "z.B. 1.5 m (oder N/A bei Adaptern)",
+                "Standard": "z.B. Cat6a, HDMI 2.1, USB 3.0"
+            },
+            "Verschiedenes": {
+                "Besonderheiten": "z.B. Vergoldete Kontakte, Geschirmt"
+            }
+        }
+        """     
 
     else:
         return base_prompt + """
