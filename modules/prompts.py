@@ -564,7 +564,30 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Betriebssystem": "z.B. Windows 11 Pro"
             }
         }
-        """                    
+        """   
+        
+    elif "sonstiges" in cat_lower or "zubehör" in cat_lower or "gadget" in cat_lower:
+        return base_prompt + """
+        Kategorie: Sonstiges / Allgemeines Zubehör
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Identifiziere, was das Produkt ist (Gerätetyp).
+        2. Finde die wichtigste Eigenschaft (z.B. Menge, Größe, Farbe).
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "z.B. Reinigungsspray, Schraubenset, Mauspad",
+                "Modell": "Name",
+                "Hersteller": "Name"
+            },
+            "Eigenschaften": {
+                "Merkmal": "z.B. 400ml (Menge) oder M3x10 (Größe)",
+                "Farbe": "z.B. Schwarz"
+            }
+        }
+        """                     
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:

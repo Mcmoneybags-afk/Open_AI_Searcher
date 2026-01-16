@@ -1619,7 +1619,41 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }       
+        }
+        
+    def map_misc_wg33(self, data, html_content=""):
+        """Mapping für Warengruppe 33: Sonstiges"""
+        allg = data.get("Allgemein", {})
+        props = data.get("Eigenschaften", {})
+        p_name = data.get("Produktname", "")
+
+        dev_type = allg.get("Gerätetyp", "Zubehör")
+        feature = props.get("Merkmal", "")
+        color = props.get("Farbe", "")
+        if color == "N/A": color = ""
+
+        # Shortname Bauen
+        # Ziel: "Hersteller Modell Gerätetyp Merkmal"
+        remove_list = ["Sonstiges", "Zubehör", "Gadget", "Verschiedenes"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, dev_type, feature, color]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 33,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Sonstiges",
+                "Seriennummer": 0,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }           
                  
     # Neue Kategorien werden genau hier drüber eingefügt 
     # ==========================================
@@ -1868,7 +1902,17 @@ class MarvinMapper:
                 cat_debug = "PC-System (WG24)"
              except Exception as e:
                 print(f"   ❌ Fehler im WG24-Mapping für {filename}: {e}")
-                return       
+                return  
+            
+        # WG 33 CHECK (SONSTIGES)
+        elif cat_debug == "Sonstiges" or "sonstiges" in json_str or "zubehör" in json_str:
+             try:
+                marvin_json = self.map_misc_wg33(data, html_content)
+                found_category = True
+                cat_debug = "Sonstiges (WG33)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG33-Mapping für {filename}: {e}")
+                return         
          
                
         # Fallback falls Struktur nicht erkannt wird, 
