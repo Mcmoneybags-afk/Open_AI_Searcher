@@ -1291,6 +1291,65 @@ class MarvinMapper:
                 "Hardware": 0
             }
         }
+        
+    def map_network_card_wg20(self, data, html_content=""):
+        """Mapping für Warengruppe 20: Netzwerkkarten"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Low Profile Check
+        lp_str = str(tech.get("Low Profile", "")).lower()
+        is_lp = 1 if "ja" in lp_str or "yes" in lp_str or "low profile" in p_name.lower() else 0
+
+        # 2. Geschwindigkeit Normalisieren
+        speed_raw = str(tech.get("Übertragungsrate", "")).upper()
+        speed_short = ""
+        
+        # Logik für Gbps/Mbps
+        if "10 G" in speed_raw or "10000 M" in speed_raw: speed_short = "10GbE"
+        elif "2.5 G" in speed_raw or "2500 M" in speed_raw: speed_short = "2.5GbE"
+        elif "1 G" in speed_raw or "1000 M" in speed_raw: speed_short = "1GbE"
+        elif "WIFI" in speed_raw: speed_short = "WiFi"
+
+        # WiFi Standard Check (Priorität vor reiner Speed-Angabe)
+        if "WIFI 7" in speed_raw or "WIFI 7" in p_name.upper(): speed_short = "WiFi 7"
+        elif "WIFI 6E" in speed_raw or "WIFI 6E" in p_name.upper(): speed_short = "WiFi 6E"
+        elif "WIFI 6" in speed_raw or "WIFI 6" in p_name.upper(): speed_short = "WiFi 6"
+
+        # 3. Schnittstelle (PCIe vs USB)
+        interface_raw = str(tech.get("Schnittstelle", "")).upper()
+        interface_short = "PCIe" if "PCI" in interface_raw else ("USB" if "USB" in interface_raw else "")
+
+        # 4. Port Typ (RJ45 vs SFP+)
+        port_raw = str(tech.get("Anschlusstyp", "")).upper()
+        port_short = ""
+        if "SFP" in port_raw: port_short = "SFP+"
+        elif "RJ45" in port_raw or "RJ-45" in port_raw: port_short = "RJ45"
+        
+        # 5. Shortname Bauen
+        remove_list = ["Netzwerkkarte", "Network", "Adapter", "Card", "Ethernet", "Gigabit", "Controller", "Interface"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        # Bsp: "TP-Link TX401 10GbE PCIe RJ45"
+        parts = [brand_clean, speed_short, interface_short, port_short]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 20,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "low_profile": is_lp,
+                "konfiggruppen_typ": "Netzwerkkarte",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }    
     
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
