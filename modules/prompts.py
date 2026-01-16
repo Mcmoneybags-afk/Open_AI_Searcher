@@ -406,6 +406,39 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Besonderheiten": "z.B. Privacy Cover, Stativgewinde, Ringlicht"
             }
         }
+        """    
+        
+    elif "gamingstuhl" in cat_lower or "gaming chair" in cat_lower or "bürostuhl" in cat_lower:
+        return base_prompt + """
+        Kategorie: Gamingstuhl / Bürostuhl
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Material: Stoff, Kunstleder (PU), Echtleder oder Mesh?
+        2. Belastbarkeit: Max. Gewicht (z.B. 120 kg, 150 kg).
+        3. Features: 4D-Armlehnen, Wippfunktion, Lendenwirbelstütze.
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Gamingstuhl",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz / Rot"
+            },
+            "Materialien": {
+                "Bezug": "z.B. Stoff, PU-Kunstleder, Mesh",
+                "Fußkreuz": "z.B. Aluminium oder Nylon"
+            },
+            "Technische Daten": {
+                "Max. Belastbarkeit": "z.B. 150 kg",
+                "Sitzbreite": "cm",
+                "Rückenlehnenhöhe": "cm"
+            },
+            "Ausstattung": {
+                "Armlehnen": "z.B. 4D verstellbar",
+                "Funktionen": "Wippmechanik, Liegefunktion (180°)"
+            }
+        }
         """        
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt

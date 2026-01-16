@@ -1251,6 +1251,56 @@ class MarvinMapper:
             }
         }                 
     
+    def map_gaming_chair_wg19(self, data, html_content=""):
+        """Mapping für Warengruppe 19: Gamingstühle"""
+        allg = data.get("Allgemein", {})
+        mat = data.get("Materialien", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Material
+        material = str(mat.get("Bezug", "")).lower()
+        mat_short = ""
+        if "stoff" in material or "fabric" in material: mat_short = "Stoff"
+        elif "kunstleder" in material or "pu" in material: mat_short = "Kunstleder"
+        elif "echtleder" in material or "leder" in material: mat_short = "Echtleder"
+        elif "mesh" in material: mat_short = "Mesh"
+        else: mat_short = "Stoff/Kunstleder" # Fallback
+
+        # 2. Belastbarkeit
+        weight_load = str(tech.get("Max. Belastbarkeit", ""))
+        weight_short = ""
+        match_w = re.search(r'(\d+)', weight_load)
+        if match_w:
+            weight_short = f"bis {match_w.group(1)}kg"
+        
+        # 3. Farbe
+        color = allg.get("Farbe", "Schwarz")
+        
+        # 4. Shortname Bauen
+        remove_list = ["Gaming", "Stuhl", "Chair", "Sitz", "Office", "Bürostuhl", "Series", "Edition"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        # Reihenfolge: Marke Modell "Gaming Stuhl" Material Farbe Gewicht
+        # Bsp: "Noblechairs HERO Gaming Stuhl Kunstleder Schwarz bis 150kg"
+        parts = [brand_clean, "Gaming Stuhl", mat_short, color, weight_short]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 19,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Gamingstuhl",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }
+    
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
     # ==========================================
@@ -1436,6 +1486,16 @@ class MarvinMapper:
              except Exception as e:
                 print(f"   ❌ Fehler im WG18-Mapping für {filename}: {e}")
                 return
+            
+        # WG 19 CHECK (GAMINGSTUHL)
+        elif cat_debug == "Gamingstuhl" or "gamingstuhl" in json_str or "gaming chair" in json_str or "bürostuhl" in json_str:
+             try:
+                marvin_json = self.map_gaming_chair_wg19(data, html_content)
+                found_category = True
+                cat_debug = "Gamingstuhl (WG19)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG19-Mapping für {filename}: {e}")
+                return    
         
         else:
             print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")
