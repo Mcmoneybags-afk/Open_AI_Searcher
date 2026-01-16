@@ -54,6 +54,7 @@ FOLDER_MAPPING = {
     "17_Audio_Geraete": "Audio",
     "18_Webcams": "Webcam",
     "19_Gamingstuhl": "Gamingstuhl",
+    "20_Netzwerkkarten": "Netzwerkkarte",
     "35_Maeuse": "Eingabegeräte", 
     "34_Tastaturen": "Eingabegeräte",
     

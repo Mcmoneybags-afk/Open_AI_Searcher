@@ -439,7 +439,37 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Funktionen": "Wippmechanik, Liegefunktion (180°)"
             }
         }
-        """        
+        """  
+        
+    elif "netzwerkkarte" in cat_lower or "network card" in cat_lower or "nic" in cat_lower:
+        return base_prompt + """
+        Kategorie: Netzwerkkarte (NIC)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Geschwindigkeit: z.B. 1 Gbit, 2.5 Gbit, 10 Gbit oder WiFi 6E/7.
+        2. Schnittstelle: PCIe (Intern) oder USB (Extern).
+        3. Formfaktor: Prüfe auf "Low Profile" (für Server/Mini-PCs).
+        4. Anschlüsse: RJ45 (Kupfer), SFP+ (Glasfaser) oder Antennen (WLAN).
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Netzwerkkarte",
+                "Modell": "Name"
+            },
+            "Technische Daten": {
+                "Übertragungsrate": "z.B. 10 Gbps oder 2400 Mbps (WiFi)",
+                "Schnittstelle": "z.B. PCIe x4 oder USB 3.0",
+                "Anschlusstyp": "z.B. 1x RJ45 oder 2x SFP+ oder WiFi",
+                "Low Profile": "Ja oder Nein"
+            },
+            "Netzwerk": {
+                "Standards": "z.B. IEEE 802.3an, WiFi 6 (802.11ax)",
+                "Chipsatz": "z.B. Intel X550"
+            }
+        }
+        """          
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:

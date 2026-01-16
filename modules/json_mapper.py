@@ -623,14 +623,14 @@ class MarvinMapper:
                 
                 "fansInc": fans_inc,
                 "fansMax": fans_max,
-                "aioSlots": aio_val, # 120|240|360
-                "wakue_slots": 1 if aio_max > 0 else 0, # Generell Wakü möglich?
+                "aioSlots": aio_val, 
+                "wakue_slots": 1 if aio_max > 0 else 0, 
                 
                 "rgb": has_rgb,
                 "silent": is_silent,
                 "color": color,
                 
-                "tower_lw_slots": 0, # Laufwerksschächte (heute fast immer 0)
+                "tower_lw_slots": 0, 
                 "low_profile": 0,
                 
                 "konfiggruppen_typ": "Gehäuse",
@@ -646,8 +646,6 @@ class MarvinMapper:
         allg = data.get("Allgemein", {})
         perf = data.get("Leistung", {})
         p_name = data.get("Produktname", data.get("_Produktname", ""))
-
-        # 1. Typ Bestimmung
         form = allg.get("Formfaktor", "")
         interf = allg.get("Schnittstelle", "")
         dev_type = allg.get("Gerätetyp", "")
@@ -678,8 +676,6 @@ class MarvinMapper:
             num = self.extract_float(val_str)
             
             speed = int(num * 1000) if is_gb else int(num)
-            
-            # Plausibilitäts-Check: Unter 100 MB/s ist für SSDs meist ein Fehler (z.B. Schnittstellen-Speed gelesen)
             if speed < 100 and disk_type != "HDD":
                 return 0 # Ungültig, lieber 0 als 6 MB/s
             return speed
@@ -760,7 +756,7 @@ class MarvinMapper:
         vga = count_ports("VGA") + count_ports("D-Sub")
 
         panel = disp.get("Panel-Typ", "").replace("Panel", "").strip()
-        if len(panel) > 10: panel = "" # Schutz vor langen Sätzen
+        if len(panel) > 10: panel = "" 
         
         # Unnötige Wörter entfernen
         remove_list = [
@@ -771,15 +767,15 @@ class MarvinMapper:
         # Versuche auch "68.6 cm" dynamisch zu entfernen
         match_cm = re.search(r'(\d+(\.\d)?)\s*cm', p_name)
         if match_cm: 
-            remove_list.append(match_cm.group(0)) # Entfernt "68.6 cm"
-            remove_list.append(match_cm.group(1)) # Entfernt "68.6" (die Zahl alleine)
+            remove_list.append(match_cm.group(0)) 
+            remove_list.append(match_cm.group(1)) 
 
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
         # Bereinige hässliche Reste wie "- - " oder "()"
-        brand_clean = re.sub(r'[-–]\s*[-–]', '', brand_clean) # Doppelte Striche
-        brand_clean = re.sub(r'^\W+|\W+$', '', brand_clean)   # Sonderzeichen am Anfang/Ende
-        brand_clean = re.sub(r'\(\s*\)', '', brand_clean)     # Leere Klammern
+        brand_clean = re.sub(r'[-–]\s*[-–]', '', brand_clean) 
+        brand_clean = re.sub(r'^\W+|\W+$', '', brand_clean)   
+        brand_clean = re.sub(r'\(\s*\)', '', brand_clean)     
         
         # Hz Zahl
         hz_str = disp.get("Bildwiederholrate", "")
@@ -818,7 +814,6 @@ class MarvinMapper:
         p_name = data.get("Produktname", data.get("_Produktname", ""))
 
         # 1. Größe (Wichtigstes Merkmal)
-        # Suche nach "120", "140", "80", "200" im Durchmesser
         size_str = tech.get("Lüfterdurchmesser", "")
         size = "120" # Fallback
         match_size = re.search(r'(\d{2,3})', size_str)
@@ -826,7 +821,6 @@ class MarvinMapper:
             size = match_size.group(1)
 
         # 2. Features für den Namen
-        # PWM Check
         is_pwm = "PWM" in feat.get("Stromanschluss", "").upper() or "PWM" in p_name.upper()
         
         # RGB Check
@@ -841,9 +835,6 @@ class MarvinMapper:
             pack_str = f"{pack_qty}er-Pack"
         
         # 4. Shortname Bauen
-        # Ziel: "120mm Neutral PWM" (statt "120mm 120x120 - Neutral PWM")
-        
-        # Attribute sammeln
         attrs = []
         if is_argb: attrs.append("ARGB")
         elif is_rgb: attrs.append("RGB")
@@ -1497,6 +1488,19 @@ class MarvinMapper:
                 print(f"   ❌ Fehler im WG19-Mapping für {filename}: {e}")
                 return    
         
+        # WG 20 CHECK (NETZWERKKARTEN)
+        elif cat_debug == "Netzwerkkarte" or "netzwerkkarte" in json_str or "network card" in json_str or "nic" in json_str:
+             try:
+                marvin_json = self.map_network_card_wg20(data, html_content)
+                found_category = True
+                cat_debug = "Netzwerkkarte (WG20)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG20-Mapping für {filename}: {e}")
+                return
+               
+        # Fallback falls Struktur nicht erkannt wird, 
+        # neue Kategiorien für den !Dispatcher! 
+        # werde genau hier drüber eingetragen.  
         else:
             print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")
             return
