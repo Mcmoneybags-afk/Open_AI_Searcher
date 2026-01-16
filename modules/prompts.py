@@ -587,7 +587,38 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Farbe": "z.B. Schwarz"
             }
         }
-        """                     
+        """  
+        
+    elif "tastatur_wg34" in cat_lower:
+        return base_prompt + """
+        Kategorie: Tastatur (Keyboard)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Layout: Deutsch (QWERTZ), US (QWERTY) oder UK?
+        2. Typ: Mechanisch (welche Switches? Rot/Blau/Braun) oder Rubberdome?
+        3. Verbindung: Kabel (USB), Wireless (2.4GHz), Bluetooth?
+        4. Beleuchtung: RGB, einfarbig oder keine?
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Tastatur",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Technische Daten": {
+                "Layout": "z.B. Deutsch (QWERTZ) oder US (QWERTY)",
+                "Tastenschalter": "z.B. Cherry MX Red, Romer-G, Rubberdome",
+                "Verbindung": "z.B. USB-C Kabel, Wireless",
+                "Beleuchtung": "z.B. RGB Einzeltastenbeleuchtung"
+            },
+            "Ausstattung": {
+                "Nummernblock": "Ja / Nein",
+                "Besonderheiten": "z.B. Handballenauflage, Multimedia-Tasten"
+            }
+        }
+        """                       
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:

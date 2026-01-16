@@ -1653,7 +1653,71 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }           
+        } 
+        
+    def map_keyboard_wg34(self, data, html_content=""):
+        """Mapping für Warengruppe 34: Tastaturen (Spezifisch)"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Layout (Kritisch!)
+        layout_raw = str(tech.get("Layout", "")).upper()
+        layout_short = ""
+        if "DE" in layout_raw or "GERMAN" in layout_raw or "QWERTZ" in layout_raw:
+            layout_short = "DE"
+        elif "US" in layout_raw or "QWERTY" in layout_raw:
+            layout_short = "US"
+        elif "UK" in layout_raw:
+            layout_short = "UK"
+        
+        # 2. Switches / Typ
+        switch_raw = str(tech.get("Tastenschalter", ""))
+        switch_short = ""
+        # Wir suchen nach bekannten Keywords
+        if "MX" in switch_raw or "Mechanical" in switch_raw or "Mechanisch" in switch_raw:
+            # Versuche Farbe zu finden
+            if "Red" in switch_raw: switch_short = "Mech. Red"
+            elif "Blue" in switch_raw: switch_short = "Mech. Blue"
+            elif "Brown" in switch_raw: switch_short = "Mech. Brown"
+            else: switch_short = "Mechanisch"
+        
+        # 3. Verbindung
+        conn_raw = str(tech.get("Verbindung", "")).lower()
+        conn_short = ""
+        if "wireless" in conn_raw or "kabellos" in conn_raw or "bluetooth" in conn_raw:
+            conn_short = "Wireless"
+        elif "usb" in conn_raw or "kabel" in conn_raw:
+            conn_short = "USB"
+
+        # 4. Beleuchtung
+        light_raw = str(tech.get("Beleuchtung", "")).upper()
+        light_short = "RGB" if "RGB" in light_raw else ""
+
+        # 5. Shortname Bauen
+        # Ziel: "Corsair K70 RGB Pro Mechanisch Red DE Layout"
+        remove_list = ["Tastatur", "Keyboard", "Gaming", "Mechanical", "Switch", "Layout"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, light_short, switch_short, conn_short, layout_short]
+        if layout_short: parts.append("Layout") # "DE Layout" liest sich besser als nur "DE"
+        
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 34, # WG 34
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Tastatur",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }              
                  
     # Neue Kategorien werden genau hier drüber eingefügt 
     # ==========================================
@@ -1913,7 +1977,16 @@ class MarvinMapper:
              except Exception as e:
                 print(f"   ❌ Fehler im WG33-Mapping für {filename}: {e}")
                 return         
-         
+        
+        # WG 34 CHECK (TASTATUREN SPEZIFISCH)
+        elif cat_debug == "Tastatur_WG34":
+             try:
+                marvin_json = self.map_keyboard_wg34(data, html_content)
+                found_category = True
+                cat_debug = "Tastatur (WG34)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG34-Mapping für {filename}: {e}")
+                return 
                
         # Fallback falls Struktur nicht erkannt wird, 
         # neue Kategiorien für den !Dispatcher! 

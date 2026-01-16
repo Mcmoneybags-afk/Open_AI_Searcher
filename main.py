@@ -60,8 +60,9 @@ FOLDER_MAPPING = {
     "23_Wasserkuehlungen": "Wasserkühlung",
     "24_PC_System": "PC-System",
     "33_Sonstiges": "Sonstiges",
+    "34_Tastaturen": "Tastatur_WG34",
     "35_Maeuse": "Eingabegeräte", 
-    "34_Tastaturen": "Eingabegeräte",
+    
     
 }
 
