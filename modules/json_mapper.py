@@ -1812,7 +1812,70 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }                     
+        } 
+        
+    def map_mousepad_wg37(self, data, html_content=""):
+        """Mapping für Warengruppe 37: Mauspads"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        feat = data.get("Ausstattung", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Größe / Format
+        size_cls = tech.get("Größenklasse", "")
+        dims = tech.get("Abmessungen", "")
+        
+        # Versuche, aus den Maßen eine Klasse abzuleiten, falls keine da ist
+        size_short = ""
+        if size_cls and size_cls != "N/A":
+            size_short = size_cls
+        elif dims:
+            # Einfache Heuristik für Breite
+            width_match = re.search(r'(\d{3,4})', dims) # Suche Zahl > 100 (mm)
+            if width_match:
+                width = int(width_match.group(1))
+                if width >= 800: size_short = "Extended XXL"
+                elif width >= 400: size_short = "Large"
+                else: size_short = "Medium"
+
+        # 2. Material
+        mat_raw = str(tech.get("Material", "")).lower()
+        mat_short = "Stoff" # Standard
+        if "hard" in mat_raw or "plastik" in mat_raw or "kunststoff" in mat_raw:
+            mat_short = "Hard"
+        elif "hybrid" in mat_raw:
+            mat_short = "Hybrid"
+
+        # 3. Features (RGB)
+        feat_str = str(feat.get("Besonderheiten", ""))
+        rgb_short = "RGB" if "RGB" in feat_str or "Beleuchtung" in feat_str else ""
+
+        # 4. Farbe
+        color = allg.get("Farbe", "Schwarz")
+        if color == "N/A": color = ""
+
+        # 5. Shortname Bauen
+        # Ziel: "Razer Goliathus Chroma Extended RGB Stoff Schwarz"
+        remove_list = ["Mauspad", "Mouse Pad", "Mousepad", "Mat", "Gaming", "Surface", "Unterlage"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, size_short, rgb_short, mat_short, "Mauspad", color]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 37, # WG 37
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Mauspad",
+                "Seriennummer": 0,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }                        
                  
     # Neue Kategorien werden genau hier drüber eingefügt 
     # ==========================================
@@ -2102,6 +2165,16 @@ class MarvinMapper:
              except Exception as e:
                 print(f"   ❌ Fehler im WG36-Mapping für {filename}: {e}")
                 return    
+        
+        # WG 37 CHECK (MAUSPADS)
+        elif cat_debug == "Mauspad" or "mauspad" in json_str or "mouse pad" in json_str or "desk mat" in json_str:
+             try:
+                marvin_json = self.map_mousepad_wg37(data, html_content)
+                found_category = True
+                cat_debug = "Mauspad (WG37)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG37-Mapping für {filename}: {e}")
+                return
                
         # Fallback falls Struktur nicht erkannt wird, 
         # neue Kategiorien für den !Dispatcher! 

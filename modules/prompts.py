@@ -648,7 +648,36 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Beleuchtung": "z.B. RGB"
             }
         }
-        """                         
+        """ 
+        
+    elif "mauspad" in cat_lower or "mouse pad" in cat_lower or "mousepad" in cat_lower or "desk mat" in cat_lower:
+        return base_prompt + """
+        Kategorie: Mauspad / Deskmat
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Größe: Abmessungen in mm/cm (z.B. 900x400mm) oder Format (L, XL, XXL, Extended).
+        2. Material: Stoff (Textil/Soft) oder Hartplastik (Hard)?
+        3. Features: Genähte Ränder, RGB-Beleuchtung, Qi-Charging?
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Mauspad",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Technische Daten": {
+                "Abmessungen": "z.B. 900 x 400 x 4 mm",
+                "Größenklasse": "z.B. XXL / Extended",
+                "Material": "z.B. Stoff / Textil oder Hartplastik",
+                "Oberfläche": "z.B. Speed oder Control (falls angegeben)"
+            },
+            "Ausstattung": {
+                "Besonderheiten": "z.B. Anti-Rutsch-Boden, Vernähte Ränder, RGB-Beleuchtung"
+            }
+        }
+        """                            
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:

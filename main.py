@@ -63,6 +63,7 @@ FOLDER_MAPPING = {
     "34_Tastaturen": "Tastatur_WG34",
     "35_Maeuse": "Maus_WG35", 
     "36_Headsets": "Headset_WG36",
+    "37_Mauspads": "Mauspad",
     
     
 }
