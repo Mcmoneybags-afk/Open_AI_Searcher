@@ -1545,7 +1545,81 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }    
+        } 
+        
+    def map_pc_system_wg24(self, data, html_content=""):
+        """Mapping für Warengruppe 24: PC-Systeme"""
+        allg = data.get("Allgemein", {})
+        hw = data.get("Hardware", {})
+        sw = data.get("Software", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Hardware Details kürzen für den Titel
+        
+        # CPU: "Intel Core i9-13900K" -> "i9-13900K"
+        cpu_raw = hw.get("Prozessor", "")
+        cpu_short = ""
+        match_cpu = re.search(r'(i\d-\w+|Ryzen \d \w+)', cpu_raw) # Einfaches Pattern
+        if match_cpu: cpu_short = match_cpu.group(1)
+        else: 
+            # Fallback: Versuche gängige Keywords zu finden
+            if "i9" in cpu_raw: cpu_short = "i9"
+            elif "i7" in cpu_raw: cpu_short = "i7"
+            elif "i5" in cpu_raw: cpu_short = "i5"
+            elif "Ryzen 9" in cpu_raw: cpu_short = "Ryzen 9"
+            elif "Ryzen 7" in cpu_raw: cpu_short = "Ryzen 7"
+            elif "Ryzen 5" in cpu_raw: cpu_short = "Ryzen 5"
+
+        # GPU: "NVIDIA GeForce RTX 4090" -> "RTX 4090"
+        gpu_raw = hw.get("Grafikkarte", "")
+        gpu_short = ""
+        match_gpu = re.search(r'(RTX\s*\d+\w*|RX\s*\d+\w*|GTX\s*\d+)', gpu_raw, re.IGNORECASE)
+        if match_gpu: 
+            gpu_short = match_gpu.group(1).upper().replace(" ", "") # RTX4090
+        
+        # RAM
+        ram_raw = hw.get("Arbeitsspeicher", "")
+        ram_short = ""
+        match_ram = re.search(r'(\d+)\s*GB', ram_raw, re.IGNORECASE)
+        if match_ram: ram_short = f"{match_ram.group(1)}GB"
+
+        # SSD
+        ssd_raw = hw.get("Festplatte", "")
+        ssd_short = ""
+        match_ssd = re.search(r'(\d+)\s*(TB|GB)', ssd_raw, re.IGNORECASE)
+        if match_ssd: ssd_short = f"{match_ssd.group(1)}{match_ssd.group(2)} SSD"
+
+        # OS
+        os_raw = sw.get("Betriebssystem", "")
+        os_short = ""
+        if "11" in os_raw: os_short = "Win11"
+        elif "10" in os_raw: os_short = "Win10"
+        
+        if "Pro" in os_raw: os_short += " Pro"
+        elif "Home" in os_raw: os_short += " Home"
+
+        # 2. Shortname Bauen
+        remove_list = ["PC-System", "Gaming", "Desktop", "Computer", "Tower", "System", "Intel", "AMD", "Nvidia", "GeForce"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        # Bsp: "HP Omen i9 64GB 2TB SSD RTX4090 Win11 Pro"
+        parts = [brand_clean, cpu_short, ram_short, ssd_short, gpu_short, os_short]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 24,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "PC-System",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }       
                  
     # Neue Kategorien werden genau hier drüber eingefügt 
     # ==========================================
@@ -1786,7 +1860,15 @@ class MarvinMapper:
                 print(f"   ❌ Fehler im WG22-Mapping für {filename}: {e}")
                 return 
             
-               
+        # WG 24 CHECK (PC SYSTEM)
+        elif cat_debug == "PC-System" or "pc-system" in json_str or "komplett-pc" in json_str:
+             try:
+                marvin_json = self.map_pc_system_wg24(data, html_content)
+                found_category = True
+                cat_debug = "PC-System (WG24)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG24-Mapping für {filename}: {e}")
+                return       
          
                
         # Fallback falls Struktur nicht erkannt wird, 

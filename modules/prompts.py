@@ -533,7 +533,38 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Anschluss": "z.B. 3-Pin ARGB"
             }
         }
-        """                
+        """
+        
+    elif "pc-system" in cat_lower or "komplett-pc" in cat_lower or "desktop-pc" in cat_lower or "gaming-pc" in cat_lower:
+        return base_prompt + """
+        Kategorie: PC-System / Komplett-PC
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. CPU: Modell genau identifizieren (z.B. i9-13900K, Ryzen 7 7800X3D).
+        2. GPU: Grafikchip (z.B. RTX 4090, Radeon RX 7900 XTX).
+        3. RAM & Speicher: Kapazität (z.B. 32GB DDR5, 2TB SSD).
+        4. OS: Windows Version (Home/Pro).
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "PC-System",
+                "Modell": "Name / Serie",
+                "Formfaktor": "z.B. Midi Tower"
+            },
+            "Hardware": {
+                "Prozessor": "z.B. Intel Core i7-13700K",
+                "Grafikkarte": "z.B. NVIDIA GeForce RTX 4070 Ti",
+                "Arbeitsspeicher": "z.B. 32 GB DDR5",
+                "Festplatte": "z.B. 1 TB M.2 SSD",
+                "Mainboard-Chipsatz": "z.B. Z790"
+            },
+            "Software": {
+                "Betriebssystem": "z.B. Windows 11 Pro"
+            }
+        }
+        """                    
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:
