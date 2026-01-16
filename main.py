@@ -61,7 +61,7 @@ FOLDER_MAPPING = {
     "24_PC_System": "PC-System",
     "33_Sonstiges": "Sonstiges",
     "34_Tastaturen": "Tastatur_WG34",
-    "35_Maeuse": "Eingabegeräte", 
+    "35_Maeuse": "Maus_WG35", 
     
     
 }

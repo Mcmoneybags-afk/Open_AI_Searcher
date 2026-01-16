@@ -1717,7 +1717,55 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }              
+        }
+        
+    def map_mouse_wg35(self, data, html_content=""):
+        """Mapping für Warengruppe 35: Mäuse (Spezifisch)"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. DPI
+        dpi_raw = str(tech.get("Bewegungsauflösung", ""))
+        dpi_short = ""
+        match_dpi = re.search(r'(\d+)', dpi_raw.replace('.', ''))
+        if match_dpi:
+            dpi_short = f"{match_dpi.group(1)}dpi"
+        
+        # 2. Verbindung
+        conn_raw = str(tech.get("Anschlusstechnik", "")).lower()
+        conn_short = ""
+        if "wireless" in conn_raw or "kabellos" in conn_raw or "bluetooth" in conn_raw:
+            conn_short = "Wireless"
+        elif "usb" in conn_raw or "verkabelt" in conn_raw:
+            conn_short = "USB"
+            
+        # 3. Farbe
+        color = allg.get("Farbe", "Schwarz")
+        if color == "N/A": color = ""
+
+        # 4. Shortname Bauen
+        # Ziel: "Logitech G Pro X Superlight Wireless 25600dpi Schwarz"
+        remove_list = ["Maus", "Mouse", "Gaming", "Optical", "Sensor", "Auflösung"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, conn_short, dpi_short, "Maus", color]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 35, # WG 35
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Maus",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }                  
                  
     # Neue Kategorien werden genau hier drüber eingefügt 
     # ==========================================
@@ -1987,6 +2035,16 @@ class MarvinMapper:
              except Exception as e:
                 print(f"   ❌ Fehler im WG34-Mapping für {filename}: {e}")
                 return 
+        
+        # WG 35 CHECK (MÄUSE SPEZIFISCH)
+        elif cat_debug == "Maus_WG35":
+             try:
+                marvin_json = self.map_mouse_wg35(data, html_content)
+                found_category = True
+                cat_debug = "Maus (WG35)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG35-Mapping für {filename}: {e}")
+                return
                
         # Fallback falls Struktur nicht erkannt wird, 
         # neue Kategiorien für den !Dispatcher! 
