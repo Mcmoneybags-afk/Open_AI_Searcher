@@ -57,6 +57,7 @@ FOLDER_MAPPING = {
     "20_Netzwerkkarten": "Netzwerkkarte",
     "21_Netzwerkadapter": "Netzwerkadapter",
     "22_Software": "Software",
+    "23_Wasserkuehlungen": "Wasserkühlung",
     "35_Maeuse": "Eingabegeräte", 
     "34_Tastaturen": "Eingabegeräte",
     

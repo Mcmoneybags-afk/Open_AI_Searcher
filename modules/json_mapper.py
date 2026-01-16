@@ -1472,7 +1472,81 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }          
+        } 
+        
+    def map_water_cooling_wg23(self, data, html_content=""):
+        """Mapping für Warengruppe 23: Wasserkühlungen (AiO)"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        komp = data.get("Kompatibilität", {})
+        feat = data.get("Beleuchtung & Features", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Radiatorgröße & aioSlots (Mapping auf 0|120|240|360)
+        rad_str = str(tech.get("Radiatorgröße", ""))
+        rad_mm = self.extract_number(rad_str)
+        
+        aio_slots = "0"
+        if rad_mm >= 360: aio_slots = "360" # Auch 420 wird hier oft als "groß" eingeordnet oder 0
+        elif rad_mm >= 240: aio_slots = "240" # 280 fällt oft hier rein
+        elif rad_mm >= 120: aio_slots = "120"
+        
+        # 2. Sockel & Typ
+        sockets_str = str(komp.get("Sockel", ""))
+        sockets_clean = sockets_str.replace("[", "").replace("]", "").replace("'", "")
+        
+        has_amd = "AM" in sockets_clean.upper() or "FM" in sockets_clean.upper()
+        has_intel = "LGA" in sockets_clean.upper() or "1700" in sockets_clean or "1200" in sockets_clean
+        
+        cpu_kuehler_typ = 0
+        if has_amd and has_intel: cpu_kuehler_typ = 3
+        elif has_intel: cpu_kuehler_typ = 2
+        elif has_amd: cpu_kuehler_typ = 1
+
+        # 3. Features & Beleuchtung
+        rgb_text = str(feat) + " " + p_name
+        has_rgb = 1 if "RGB" in rgb_text else 0
+        has_argb = 1 if "ARGB" in rgb_text or "Addressable" in rgb_text else 0
+        
+        # TDP
+        tdp = int(self._extract_value_with_unit(tech.get("TDP-Klasse", ""), "W|Watt"))
+
+        # 4. Shortname Bauen
+        # Ziel: "Corsair iCUE H150i RGB Elite 360mm AiO"
+        remove_list = ["Wasserkühlung", "Water Cooling", "Liquid", "Cooler", "CPU", "AiO", "System", "Komplett"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        suffix = f"{rad_mm}mm AiO" if rad_mm > 0 else "AiO"
+        
+        short_name = f"{brand_clean} {suffix}".strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 23,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "aioSlots": aio_slots, # WICHTIG: Werteliste
+                "cpukuehler_typ": cpu_kuehler_typ,
+                "board_cpukuehler_sockel": sockets_clean[:255],
+                "tdp": tdp,
+                
+                "rgb": has_rgb,
+                "argb": has_argb,
+                "rgb_anschluss_3pin_argb": has_argb,
+                "rgb_anschluss_4pin_rgb": 1 if has_rgb and not has_argb else 0,
+                
+                "wakue_slots": 1, # Ist ja eine Wakü
+                "board_wakue_anschluss": 1, # Braucht Pumpen-Header
+                "silent": 1 if "silent" in p_name.lower() or "quiet" in p_name.lower() else 0,
+                
+                "konfiggruppen_typ": "Wasserkühlung",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }    
+                 
     # Neue Kategorien werden genau hier drüber eingefügt 
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
@@ -1589,6 +1663,17 @@ class MarvinMapper:
              except Exception as e:
                 print(f"   ❌ Fehler im Fan-Mapping für {filename}: {e}")
                 return
+            
+        # WG 23 CHECK (WASSERKÜHLUNG)
+        # Priorität vor WG 9 (CPU-Kühler) für eindeutige AiOs
+        elif cat_debug == "Wasserkühlung" or "wasserkühlung" in json_str or "aio" in json_str or "liquid cooler" in json_str:
+             try:
+                marvin_json = self.map_water_cooling_wg23(data, html_content)
+                found_category = True
+                cat_debug = "Wasserkühlung (WG23)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG23-Mapping für {filename}: {e}")
+                return    
         
         # 10. CPU-KÜHLER / AIO CHECK (WG 9)
         elif "bauhöhe" in json_str or "radiatorgröße" in json_str or "cpu-kühler" in json_str:
@@ -1699,7 +1784,9 @@ class MarvinMapper:
                 cat_debug = "Software (WG22)"
              except Exception as e:
                 print(f"   ❌ Fehler im WG22-Mapping für {filename}: {e}")
-                return    
+                return 
+            
+               
          
                
         # Fallback falls Struktur nicht erkannt wird, 

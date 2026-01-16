@@ -501,7 +501,39 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Architektur": "64-Bit / 32-Bit"
             }
         }
-        """              
+        """  
+        
+    elif "wasserkühlung" in cat_lower or "water cooling" in cat_lower or "aio" in cat_lower or "liquid cooler" in cat_lower:
+        return base_prompt + """
+        Kategorie: Wasserkühlung (AiO / Liquid)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Radiatorgröße: 120mm, 240mm, 280mm, 360mm, 420mm?
+        2. TDP: Kühlleistung in Watt (z.B. 250W TDP).
+        3. Beleuchtung: RGB (4-Pin), ARGB (3-Pin) oder keine?
+        4. Sockel: AM4, AM5, LGA1700, etc.
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "AiO Wasserkühlung",
+                "Modell": "Name"
+            },
+            "Technische Daten": {
+                "Radiatorgröße": "z.B. 360 mm",
+                "TDP-Klasse": "z.B. 300 Watt",
+                "Geräuschpegel": "dBA"
+            },
+            "Kompatibilität": {
+                "Sockel": "Liste (z.B. AM4, AM5, LGA1700)"
+            },
+            "Beleuchtung & Features": {
+                "Beleuchtung": "ARGB, RGB oder Nein",
+                "Anschluss": "z.B. 3-Pin ARGB"
+            }
+        }
+        """                
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:
