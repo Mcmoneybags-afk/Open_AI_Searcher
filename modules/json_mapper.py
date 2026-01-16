@@ -1349,8 +1349,131 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }    
-    
+        } 
+        
+    def map_network_adapter_wg21(self, data, html_content=""):
+        """Mapping für Warengruppe 21: Netzwerkadapter"""
+        # Logik identisch zu WG 20, aber eigene ID
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Low Profile Check
+        lp_str = str(tech.get("Low Profile", "")).lower()
+        is_lp = 1 if "ja" in lp_str or "yes" in lp_str or "low profile" in p_name.lower() else 0
+
+        # 2. Geschwindigkeit
+        speed_raw = str(tech.get("Übertragungsrate", "")).upper()
+        speed_short = ""
+        
+        if "10 G" in speed_raw or "10000 M" in speed_raw: speed_short = "10GbE"
+        elif "2.5 G" in speed_raw or "2500 M" in speed_raw: speed_short = "2.5GbE"
+        elif "1 G" in speed_raw or "1000 M" in speed_raw: speed_short = "1GbE"
+        elif "WIFI" in speed_raw: speed_short = "WiFi"
+
+        if "WIFI 7" in speed_raw or "WIFI 7" in p_name.upper(): speed_short = "WiFi 7"
+        elif "WIFI 6E" in speed_raw or "WIFI 6E" in p_name.upper(): speed_short = "WiFi 6E"
+        elif "WIFI 6" in speed_raw or "WIFI 6" in p_name.upper(): speed_short = "WiFi 6"
+
+        # 3. Schnittstelle
+        interface_raw = str(tech.get("Schnittstelle", "")).upper()
+        interface_short = "PCIe" if "PCI" in interface_raw else ("USB" if "USB" in interface_raw else "")
+
+        # 4. Port Typ
+        port_raw = str(tech.get("Anschlusstyp", "")).upper()
+        port_short = ""
+        if "SFP" in port_raw: port_short = "SFP+"
+        elif "RJ45" in port_raw or "RJ-45" in port_raw: port_short = "RJ45"
+        
+        # 5. Shortname
+        remove_list = ["Netzwerkkarte", "Netzwerkadapter", "Network", "Adapter", "Card", "Ethernet", "Gigabit", "Controller", "Interface", "Dongle", "Stick"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        # Bsp: "AVM FRITZ!WLAN Stick AC 860 WiFi USB"
+        parts = [brand_clean, speed_short, interface_short, port_short]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 21, # WICHTIG: WG 21
+            "Attribute": {
+                "shortNameLang": short_name,
+                "low_profile": is_lp,
+                "konfiggruppen_typ": "Netzwerkadapter",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        } 
+        
+    def map_software_wg22(self, data, html_content=""):
+        """Mapping für Warengruppe 22: Software"""
+        allg = data.get("Allgemein", {})
+        det = data.get("Details", {})
+        sys = data.get("Systemanforderungen", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Daten extrahieren
+        titel = allg.get("Titel", p_name)
+        edition = det.get("Version/Edition", "")
+        sprache = str(det.get("Sprache", "")).title()
+        lizenz = det.get("Lizenzart", "")
+        kategorie = det.get("Kategorie", "").lower()
+        arch = sys.get("Architektur", "")
+
+        # 2. Kundengruppe Logik (Nur für Betriebssysteme)
+        # Tabelle sagt: "nur für Betriebssystem kommagetrennt de=1,2,6 // fr=7"
+        kundengruppe = "0" # Default
+        
+        is_os = "betriebssystem" in kategorie or "windows" in titel.lower() or "server" in titel.lower()
+        
+        if is_os:
+            if "Deutsch" in sprache or "German" in sprache or "DE" in p_name.upper():
+                kundengruppe = "1,2,6"
+            elif "Französisch" in sprache or "French" in sprache or "FR" in p_name.upper():
+                kundengruppe = "7"
+            # Falls Multilingual, könnte man entscheiden (vielleicht beide oder Standard?)
+            elif "Multi" in sprache:
+                kundengruppe = "1,2,6" # Annahme: Multi enthält meist DE
+
+        # 3. Shortname Bauen
+        # Ziel: "Microsoft Windows 11 Pro 64-Bit Deutsch DSP/SB"
+        
+        # Hersteller bereinigen
+        brand_clean = self.clean_brand_name(p_name, ["Software", "Betriebssystem", "Lizenz", "Key", "Vollversion"])
+        
+        # Sprache kürzen
+        lang_short = sprache
+        if "Deutsch" in sprache: lang_short = "Deutsch"
+        elif "Englisch" in sprache: lang_short = "Englisch"
+        elif "Multi" in sprache: lang_short = "ML"
+
+        # Architektur kürzen
+        arch_short = ""
+        if "64" in arch: arch_short = "64-Bit"
+        
+        parts = [brand_clean, edition, arch_short, lang_short, lizenz]
+        parts_clean = [p for p in parts if p and p not in brand_clean] # Dopplungen vermeiden
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 22,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "kundengruppe": kundengruppe,
+                "konfiggruppen_typ": "Software",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }          
+    # Neue Kategorien werden genau hier drüber eingefügt 
     # ==========================================
     # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
     # ==========================================
@@ -1498,7 +1621,8 @@ class MarvinMapper:
                 return 
             
         # WG 15 CHECK (KABEL)
-        elif cat_debug == "Kabel" or "kabel" in json_str or "adapter" in json_str or "anschluss a" in json_str:
+        elif (cat_debug == "Kabel" or "kabel" in json_str or "adapter" in json_str or "anschluss a" in json_str) \
+             and "netzwerk" not in json_str and "network" not in json_str and "wlan" not in json_str:
              try:
                 marvin_json = self.map_cables_wg15(data, html_content)
                 found_category = True
@@ -1556,6 +1680,27 @@ class MarvinMapper:
              except Exception as e:
                 print(f"   ❌ Fehler im WG20-Mapping für {filename}: {e}")
                 return
+         
+        # WG 21 CHECK (NETZWERKADAPTER)
+        elif cat_debug == "Netzwerkadapter" or "netzwerkadapter" in json_str or "wlan stick" in json_str:
+             try:
+                marvin_json = self.map_network_adapter_wg21(data, html_content)
+                found_category = True
+                cat_debug = "Netzwerkadapter (WG21)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG21-Mapping für {filename}: {e}")
+                return
+            
+        # WG 22 CHECK (SOFTWARE)
+        elif cat_debug == "Software" or "software" in json_str or "windows" in json_str or "office" in json_str:
+             try:
+                marvin_json = self.map_software_wg22(data, html_content)
+                found_category = True
+                cat_debug = "Software (WG22)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG22-Mapping für {filename}: {e}")
+                return    
+         
                
         # Fallback falls Struktur nicht erkannt wird, 
         # neue Kategiorien für den !Dispatcher! 

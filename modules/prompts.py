@@ -441,9 +441,10 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """  
         
-    elif "netzwerkkarte" in cat_lower or "network card" in cat_lower or "nic" in cat_lower:
+    # Hier ergänzen wir "netzwerkadapter" und "wlan stick"
+    elif "netzwerkkarte" in cat_lower or "network card" in cat_lower or "nic" in cat_lower or "netzwerkadapter" in cat_lower or "wlan stick" in cat_lower:
         return base_prompt + """
-        Kategorie: Netzwerkkarte (NIC)
+        Kategorie: Netzwerkkarte / Netzwerkadapter
         ERSTELLE EIN HIERARCHISCHES JSON.
 
         WICHTIG:
@@ -455,7 +456,7 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Gerätetyp": "Netzwerkkarte",
+                "Gerätetyp": "Netzwerkadapter",
                 "Modell": "Name"
             },
             "Technische Daten": {
@@ -469,7 +470,38 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Chipsatz": "z.B. Intel X550"
             }
         }
-        """          
+        """
+        
+    elif "software" in cat_lower or "windows" in cat_lower or "office" in cat_lower or "antivirus" in cat_lower or "esd" in cat_lower or "microsoft" in cat_lower:
+        return base_prompt + """
+        Kategorie: Software (Betriebssysteme, Office, Antivirus)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Typ: Betriebssystem, Office-Anwendung oder Sicherheit/Antivirus?
+        2. Edition: Home, Pro, Enterprise, Personal, Family?
+        3. Sprache: Deutsch, Englisch, Multilingual?
+        4. Lizenz: OEM, Retail, ESD (Download), DSP/SB.
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Software",
+                "Titel": "Name der Software",
+                "Hersteller": "z.B. Microsoft"
+            },
+            "Details": {
+                "Kategorie": "z.B. Betriebssystem oder Büroanwendung",
+                "Version/Edition": "z.B. Windows 11 Pro oder Office 2021 Home & Business",
+                "Sprache": "z.B. Deutsch, Multilingual oder Englisch",
+                "Lizenzart": "z.B. OEM, DSP/SB, Retail, ESD"
+            },
+            "Systemanforderungen": {
+                "Plattform": "Windows, Mac, Android",
+                "Architektur": "64-Bit / 32-Bit"
+            }
+        }
+        """              
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:
