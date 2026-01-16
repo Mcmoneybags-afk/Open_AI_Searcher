@@ -618,7 +618,37 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Besonderheiten": "z.B. Handballenauflage, Multimedia-Tasten"
             }
         }
-        """                       
+        """  
+        
+    elif "headset_wg36" in cat_lower:
+        return base_prompt + """
+        Kategorie: Headset (Gaming / Office)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Verbindung: Kabelgebunden (USB/Klinke) oder Wireless (Funk/Bluetooth)?
+        2. Audio: Stereo, 7.1 Surround oder Spatial Audio?
+        3. Bauform: Over-Ear (Ohrumschließend) oder On-Ear?
+        4. Mikrofon: Abnehmbar, Klappbar oder Integriert?
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Headset",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Technische Daten": {
+                "Anschlusstechnik": "z.B. Wireless (2.4 GHz) / Bluetooth oder Verkabelt (USB)",
+                "Bauform": "z.B. Ohrumschließend (Over-Ear)",
+                "Soundmodus": "z.B. 7.1 Surround Sound oder Stereo"
+            },
+            "Ausstattung": {
+                "Mikrofon": "z.B. Ja, abnehmbar",
+                "Beleuchtung": "z.B. RGB"
+            }
+        }
+        """                         
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:

@@ -1765,7 +1765,54 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }                  
+        } 
+        
+    def map_headset_wg36(self, data, html_content=""):
+        """Mapping für Warengruppe 36: Headsets (Spezifisch)"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Verbindung (Wireless vs USB/Klinke)
+        conn_raw = str(tech.get("Anschlusstechnik", "")).lower()
+        conn_short = ""
+        if "wireless" in conn_raw or "kabellos" in conn_raw or "bluetooth" in conn_raw or "funk" in conn_raw:
+            conn_short = "Wireless"
+        elif "usb" in conn_raw or "kabel" in conn_raw or "verkabelt" in conn_raw:
+            conn_short = "USB" # Oder "Wired", je nach Wunsch. USB ist prägnanter.
+
+        # 2. Soundmodus (7.1 ist ein wichtiges Verkaufsargument)
+        sound_raw = str(tech.get("Soundmodus", "")).upper()
+        sound_short = ""
+        if "7.1" in sound_raw: sound_short = "7.1"
+        elif "SURROUND" in sound_raw: sound_short = "Surround"
+        
+        # 3. Farbe
+        color = allg.get("Farbe", "Schwarz")
+        if color == "N/A": color = ""
+
+        # 4. Shortname Bauen
+        # Ziel: "Logitech G733 Wireless 7.1 RGB Schwarz"
+        remove_list = ["Headset", "Gaming", "Kopfhörer", "Headphones", "Ear", "Ohrhörer"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, conn_short, sound_short, "Headset", color]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 36, # WG 36
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Headset",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }                     
                  
     # Neue Kategorien werden genau hier drüber eingefügt 
     # ==========================================
@@ -2045,6 +2092,16 @@ class MarvinMapper:
              except Exception as e:
                 print(f"   ❌ Fehler im WG35-Mapping für {filename}: {e}")
                 return
+            
+        # WG 36 CHECK (HEADSETS SPEZIFISCH)
+        elif cat_debug == "Headset_WG36":
+             try:
+                marvin_json = self.map_headset_wg36(data, html_content)
+                found_category = True
+                cat_debug = "Headset (WG36)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG36-Mapping für {filename}: {e}")
+                return    
                
         # Fallback falls Struktur nicht erkannt wird, 
         # neue Kategiorien für den !Dispatcher! 
