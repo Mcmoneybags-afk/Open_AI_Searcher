@@ -210,12 +210,36 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
 
     elif "arbeitsspeicher" in cat_lower or "ram" in cat_lower:
         return base_prompt + """
-        Kategorie: RAM
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Arbeitsspeicher (RAM)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+        
+        Suche nach ALLEN technischen Details. Besonders wichtig sind Spannung, Formfaktor und SPD/XMP Details.
+
         Benötigte JSON-Struktur:
         {
-            "Allgemein": { "Kapazität": "32 GB" },
-            "Arbeitsspeicher": { "Technologie": "DDR5", "Geschwindigkeit": "6000 MHz", "Latenzzeiten": "CL30" }
+            "Allgemein": {
+                "Kapazität": "z.B. 32 GB (2 x 16 GB)",
+                "Erweiterungstyp": "z.B. Generisch",
+                "Breite": "mm (falls verfügbar)",
+                "Tiefe": "mm (falls verfügbar)",
+                "Höhe": "mm (falls verfügbar)"
+            },
+            "Arbeitsspeicher": {
+                "Typ": "z.B. DRAM Speicher-Kit",
+                "Technologie": "z.B. DDR5 SDRAM",
+                "Formfaktor": "z.B. DIMM 288-PIN oder SO-DIMM 262-PIN",
+                "Geschwindigkeit": "z.B. 6000 MHz (PC5-48000)",
+                "Latenzzeiten": "z.B. CL36 (36-38-38-76)",
+                "Besonderheiten": "z.B. Intel Extreme Memory Profiles (XMP 3.0), AMD EXPO, Heatspreader",
+                "Spannung": "z.B. 1.35 V",
+                "RAM-Leistung": "z.B. SPD - 4800 MHz - 1.1 V / Tested - 6000 MHz - 1.35 V (Details zu Profilen)"
+            },
+            "Verschiedenes": {
+                "Farbkategorie": "z.B. Schwarz, Weiß, RGB"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "z.B. Begrenzte lebenslange Garantie"
+            }
         }
         """
 

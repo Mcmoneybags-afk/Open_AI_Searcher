@@ -76,17 +76,20 @@ class HTMLGenerator:
             data = json.load(f)
 
         # 1. Den komplexen HTML-Block bauen (Python Logic)
+        # Das brauchen wir weiterhin für den MarvinMapper (unten), 
+        # auch wenn das Template sich die Daten jetzt selbst holt.
         technical_block = self.generate_jtl_html_block(data)
         
-        # 2. Metadaten für den Header extrahieren (falls vorhanden)
+        # 2. Metadaten für den Header extrahieren
         product_name = data.get("Produktname", data.get("_Produktname", "Datenblatt"))
         
         # 3. In das Template einfügen (Jinja2 Logic)
-        # Wir übergeben den fertigen Block als 'tech_specs'
+        # FIX: Wir übergeben 'data=data', damit das Template die Variable findet!
         output = self.template.render(
             product_name=product_name,
-            tech_specs=technical_block,
-            original_data=data # Falls wir im Template noch was anderes brauchen
+            tech_specs=technical_block, # Für Backwards-Compatibility
+            data=data,                  # <--- WICHTIG: Hier stand vorher 'original_data=data'
+            original_data=data          # Kannst du drin lassen oder löschen
         )
         
         # Speichern
@@ -97,8 +100,8 @@ class HTMLGenerator:
             f.write(output)
             
         # --- NEU: MARVIN JSON ERSTELLEN ---
-        # Wir übergeben das Original-JSON und den generierten HTML-Block (für marketingDesc)
         try:
+            # Hier nutzen wir den technical_block String weiter für das JSON
             self.marvin.create_json(json_file, data, technical_block)
         except Exception as e:
             print(f"   ⚠️ Fehler beim Marvin-Mapping für {json_file}: {e}")
