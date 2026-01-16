@@ -650,7 +650,66 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """ 
         
-    elif "mauspad" in cat_lower or "mouse pad" in cat_lower or "mousepad" in cat_lower or "desk mat" in cat_lower:
+        
+    elif "streaming" in cat_lower or "capture" in cat_lower or "stream deck" in cat_lower or "elgato" in cat_lower:
+        return base_prompt + """
+        Kategorie: Streaming Equipment (Capture Card, Stream Deck, Licht)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Gerätetyp: Capture Card, Stream Controller, Green Screen oder Licht?
+        2. Specs (Video): Max. Auflösung & FPS (z.B. 4K60, 1080p60) - nur bei Capture Cards.
+        3. Specs (Controller): Anzahl der Tasten (z.B. 15 Tasten) - nur bei Stream Decks.
+        4. Anschluss: USB, PCIe, HDMI?
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "z.B. Capture Card oder Stream Deck",
+                "Modell": "Name",
+                "Hersteller": "z.B. Elgato"
+            },
+            "Technische Daten": {
+                "Auflösung (Video)": "z.B. 4K60 HDR oder 1080p60 (bei Capture Cards)",
+                "Anzahl Tasten": "z.B. 15 LCD-Tasten (bei Decks)",
+                "Schnittstelle": "z.B. USB 3.0, PCIe x4"
+            },
+            "Ausstattung": {
+                "Funktionen": "z.B. Passthrough, Multi-App Control"
+            }
+        }
+        """ 
+        
+    elif "lautsprecher" in cat_lower or "speaker" in cat_lower or "soundbar" in cat_lower or "boxen" in cat_lower:
+        return base_prompt + """
+        Kategorie: Lautsprecher / Soundsystem
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. System: 2.0 (Stereo), 2.1 (mit Subwoofer), 5.1 (Surround) oder Soundbar?
+        2. Verbindung: Bluetooth, USB, 3.5mm Klinke (AUX) oder Optisch?
+        3. Leistung: Gesamtleistung in Watt (RMS).
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Lautsprecher",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Technische Daten": {
+                "Kanäle": "z.B. 2.0, 2.1 oder 5.1",
+                "Gesamtleistung": "z.B. 40 Watt (RMS)",
+                "Frequenzbereich": "z.B. 55 Hz - 20 kHz"
+            },
+            "Konnektivität": {
+                "Schnittstellen": "z.B. Bluetooth 5.0, 3.5mm Klinke, USB",
+                "Stromversorgung": "z.B. Netzteil oder USB-Powered"
+            }
+        }
+        """  
+        
+    elif "mauspad_wg39" in cat_lower:
         return base_prompt + """
         Kategorie: Mauspad / Deskmat
         ERSTELLE EIN HIERARCHISCHES JSON.
@@ -677,7 +736,88 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Besonderheiten": "z.B. Anti-Rutsch-Boden, Vernähte Ränder, RGB-Beleuchtung"
             }
         }
-        """                            
+        """  
+        
+    elif "desktop_set_wg40" in cat_lower:
+        return base_prompt + """
+        Kategorie: Maus-Tastatur-Set (Desktop Set / Combo)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Layout: Deutsch (QWERTZ), US (QWERTY) oder anderes?
+        2. Verbindung: Wireless (Funk/Bluetooth) oder Kabelgebunden?
+        3. Inhalt: Ist eine Maus dabei?
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Desktop-Set",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Technische Daten": {
+                "Layout": "z.B. Deutsch (QWERTZ)",
+                "Verbindung": "z.B. Wireless 2.4 GHz / Bluetooth",
+                "Sensor (Maus)": "z.B. Optisch"
+            },
+            "Ausstattung": {
+                "Besonderheiten": "z.B. Handballenauflage, Unifying Receiver"
+            }
+        }
+        """ 
+        
+    elif "service" in cat_lower or "garantie" in cat_lower or "warranty" in cat_lower or "dienstleistung" in cat_lower or "care pack" in cat_lower:
+        return base_prompt + """
+        Kategorie: Service / Dienstleistung
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Art des Service: Garantieerweiterung, Montage, Prüfung, Versicherung?
+        2. Dauer: Zeitspanne (z.B. 3 Jahre, 12 Monate).
+        3. Umfang: Vor-Ort (On-Site), Bring-In, Pick-Up?
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Dienstleistungstyp": "z.B. Garantieerweiterung",
+                "Bezeichnung": "Name des Service",
+                "Dauer": "z.B. 3 Jahre (falls zutreffend)"
+            },
+            "Details": {
+                "Art": "z.B. Vor-Ort-Service, Pick-Up & Return oder Next Business Day",
+                "Abdeckung": "z.B. Hardware-Reparatur"
+            }
+        }
+        """
+        
+    elif "usb-stick" in cat_lower or "flash drive" in cat_lower or "thumb drive" in cat_lower:
+        return base_prompt + """
+        Kategorie: USB-Stick (Flash Drive)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+
+        WICHTIG:
+        1. Kapazität: Speichergröße (z.B. 64 GB, 128 GB).
+        2. Standard: USB 2.0, 3.0, 3.1, 3.2 Gen 1?
+        3. Anschluss: USB-A, USB-C oder Dual (beides)?
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "USB-Stick",
+                "Modell": "Name",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Technische Daten": {
+                "Kapazität": "z.B. 128 GB",
+                "Schnittstelle": "z.B. USB 3.2 Gen 1 (USB-A)",
+                "Lesegeschwindigkeit": "z.B. 100 MB/s (falls verfügbar)"
+            },
+            "Besonderheiten": {
+                "Verschlüsselung": "Ja / Nein",
+                "Bauform": "z.B. Slider / Kappe / Mini"
+            }
+        }
+        """                                          
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:

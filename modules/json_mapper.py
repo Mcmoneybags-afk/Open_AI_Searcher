@@ -1814,8 +1814,116 @@ class MarvinMapper:
             }
         } 
         
-    def map_mousepad_wg37(self, data, html_content=""):
-        """Mapping für Warengruppe 37: Mauspads"""
+    def map_streaming_wg37(self, data, html_content=""):
+        """Mapping für Warengruppe 37: Streaming (Capture Cards, Decks)"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        dev_type = allg.get("Gerätetyp", "Streaming Gear")
+        
+        # Feature-Extraction je nach Typ
+        feature_short = ""
+        
+        # Fall A: Capture Cards (Auflösung ist wichtig)
+        res = tech.get("Auflösung (Video)", "")
+        if res and res != "N/A":
+            # Versuche "4K60", "1080p" zu finden
+            if "4K" in res: feature_short = "4K"
+            if "60" in res: feature_short += "60"
+            elif "1080" in res: feature_short = "1080p"
+            
+        # Fall B: Stream Decks (Tasten sind wichtig)
+        keys = str(tech.get("Anzahl Tasten", ""))
+        match_keys = re.search(r'(\d+)', keys)
+        if match_keys:
+            feature_short = f"{match_keys.group(1)} Tasten"
+
+        # Anschluss
+        conn_raw = str(tech.get("Schnittstelle", "")).upper()
+        conn_short = ""
+        if "PCI" in conn_raw: conn_short = "PCIe"
+        elif "USB" in conn_raw: conn_short = "USB"
+
+        # Shortname Bauen
+        # Ziel A: "Elgato Game Capture 4K60 Pro PCIe"
+        # Ziel B: "Elgato Stream Deck MK.2 15 Tasten USB"
+        remove_list = ["Streaming", "Capture", "Card", "Game", "Controller", "Live"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, feature_short, conn_short, dev_type]
+        parts_clean = [p for p in parts if p and p not in brand_clean] # Dopplungen vermeiden
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 37, # WG 37
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Streaming",
+                "Seriennummer": 1, # Oft teure Hardware -> SN-Pflicht sinnvoll
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }  
+        
+    def map_speakers_wg38(self, data, html_content=""):
+        """Mapping für Warengruppe 38: Lautsprecher"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        conn = data.get("Konnektivität", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Kanäle / System
+        channels = str(tech.get("Kanäle", ""))
+        sys_short = ""
+        if "5.1" in channels: sys_short = "5.1"
+        elif "2.1" in channels: sys_short = "2.1"
+        elif "2.0" in channels: sys_short = "2.0"
+        elif "Soundbar" in channels or "Soundbar" in p_name: sys_short = "Soundbar"
+
+        # 2. Leistung (Watt)
+        power_raw = str(tech.get("Gesamtleistung", ""))
+        power_short = ""
+        match_power = re.search(r'(\d+)', power_raw)
+        if match_power:
+            power_short = f"{match_power.group(1)}W"
+
+        # 3. Verbindung (Bluetooth ist wichtiges Feature)
+        conn_str = str(conn.get("Schnittstellen", ""))
+        bt_short = "Bluetooth" if "Bluetooth" in conn_str or "BT" in conn_str else ""
+        
+        # 4. Farbe
+        color = allg.get("Farbe", "Schwarz")
+        if color == "N/A": color = ""
+
+        # 5. Shortname Bauen
+        # Ziel: "Edifier R1280DB 2.0 42W Bluetooth Schwarz"
+        remove_list = ["Lautsprecher", "Speaker", "System", "Boxen", "Sound", "Multimedia"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, sys_short, power_short, bt_short, "Lautsprecher", color]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 38,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Lautsprecher",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }  
+        
+    def map_mousepad_wg39(self, data, html_content=""):
+        """Mapping für Warengruppe 39: Mauspads (Final)"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         feat = data.get("Ausstattung", {})
@@ -1825,12 +1933,11 @@ class MarvinMapper:
         size_cls = tech.get("Größenklasse", "")
         dims = tech.get("Abmessungen", "")
         
-        # Versuche, aus den Maßen eine Klasse abzuleiten, falls keine da ist
+        # Versuche, aus den Maßen eine Klasse abzuleiten
         size_short = ""
         if size_cls and size_cls != "N/A":
             size_short = size_cls
         elif dims:
-            # Einfache Heuristik für Breite
             width_match = re.search(r'(\d{3,4})', dims) # Suche Zahl > 100 (mm)
             if width_match:
                 width = int(width_match.group(1))
@@ -1866,7 +1973,7 @@ class MarvinMapper:
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 37, # WG 37
+            "kWarengruppe": 39, # WG 39
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Mauspad",
@@ -1875,7 +1982,152 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }                        
+        }
+        
+    def map_desktop_set_wg40(self, data, html_content=""):
+        """Mapping für Warengruppe 40: Maus-Tastatur-Sets"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Layout (Kritisch für DE-Kunden)
+        layout_raw = str(tech.get("Layout", "")).upper()
+        layout_short = ""
+        if "DE" in layout_raw or "GERMAN" in layout_raw or "QWERTZ" in layout_raw:
+            layout_short = "DE"
+        elif "US" in layout_raw or "QWERTY" in layout_raw:
+            layout_short = "US"
+        elif "CH" in layout_raw or "SWISS" in layout_raw:
+            layout_short = "CH"
+
+        # 2. Verbindung
+        conn_raw = str(tech.get("Verbindung", "")).lower()
+        conn_short = ""
+        if "wireless" in conn_raw or "kabellos" in conn_raw or "bluetooth" in conn_raw or "funk" in conn_raw:
+            conn_short = "Wireless"
+        elif "usb" in conn_raw or "kabel" in conn_raw:
+            conn_short = "USB"
+
+        # 3. Farbe
+        color = allg.get("Farbe", "Schwarz")
+        if color == "N/A": color = ""
+
+        # 4. Shortname Bauen
+        # Ziel: "Logitech MK270 Wireless Desktop-Set DE Schwarz"
+        remove_list = ["Set", "Combo", "Desktop", "Maus", "Tastatur", "Keyboard", "Mouse", "Wireless", "Kabellos"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, "Desktop-Set", conn_short, layout_short, color]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 40, # WG 40
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Desktop-Set",
+                "Seriennummer": 1,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        } 
+        
+    def map_service_wg41(self, data, html_content=""):
+        """Mapping für Warengruppe 41: Service & Dienstleistungen"""
+        allg = data.get("Allgemein", {})
+        det = data.get("Details", {})
+        p_name = data.get("Produktname", "")
+
+        # Daten extrahieren
+        svc_type = allg.get("Dienstleistungstyp", "Service")
+        duration = allg.get("Dauer", "")
+        mode = det.get("Art", "")
+        
+        # Bereinigung der Dauer (z.B. "3 Jahre" -> "3 Jahre")
+        # Oft steht "3Y" im Namen, wir wollen es lesbar
+        
+        # Shortname Bauen
+        # Ziel: "Lenovo Premier Support 3 Jahre Vor-Ort"
+        # Wir entfernen generische Wörter aus dem Markennamen, um Dopplungen zu vermeiden
+        remove_list = ["Service", "Dienstleistung", "Pack", "Extension", "Erweiterung", "Warranty", "Garantie", "Support"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, svc_type, duration, mode]
+        parts_clean = [p for p in parts if p and p != "N/A"]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 41,
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "Service",
+                "Seriennummer": 0, # Service-Artikel haben keine physische Seriennummer
+                "upgradeArticle": 1, # Oft als Upgrade/Cross-Selling im Warenkorb
+                "markup": 0,
+                "Hardware": 0
+            }
+        }   
+        
+    def map_usb_stick_wg42(self, data, html_content=""):
+        """Mapping für Warengruppe 42: USB-Sticks"""
+        allg = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        p_name = data.get("Produktname", "")
+
+        # 1. Kapazität
+        cap_raw = str(tech.get("Kapazität", "")).upper()
+        cap_short = ""
+        match_cap = re.search(r'(\d+)\s*(GB|TB)', cap_raw)
+        if match_cap:
+            cap_short = f"{match_cap.group(1)}{match_cap.group(2)}"
+
+        # 2. Schnittstelle (Standard & Typ)
+        iface_raw = str(tech.get("Schnittstelle", "")).upper()
+        iface_short = "USB" # Fallback
+        
+        # Standard Normalisierung
+        if "3.2" in iface_raw: iface_short = "USB 3.2"
+        elif "3.1" in iface_raw: iface_short = "USB 3.1"
+        elif "3.0" in iface_raw: iface_short = "USB 3.0"
+        elif "2.0" in iface_raw: iface_short = "USB 2.0"
+        
+        # Stecker Typ (Wenn Type-C dabei ist, ist das wichtig)
+        if "TYPE-C" in iface_raw or "USB-C" in iface_raw:
+            iface_short += " Type-C"
+        elif "DUAL" in iface_raw:
+            iface_short += " Dual"
+
+        # 3. Farbe
+        color = allg.get("Farbe", "Schwarz")
+        if color == "N/A": color = ""
+
+        # 4. Shortname Bauen
+        # Ziel: "Kingston DataTraveler Exodia 64GB USB 3.2 Schwarz"
+        remove_list = ["USB-Stick", "Flash", "Drive", "Speicherstick", "USB", "Stick", "Pen", "Memory"]
+        brand_clean = self.clean_brand_name(p_name, remove_list)
+        
+        parts = [brand_clean, cap_short, iface_short, "USB-Stick", color]
+        parts_clean = [p for p in parts if p]
+        
+        short_name = " ".join(parts_clean).strip()
+        short_name = re.sub(r'\s+', ' ', short_name)
+
+        return {
+            "kWarengruppe": 42, # WG 42
+            "Attribute": {
+                "shortNameLang": short_name,
+                "konfiggruppen_typ": "USB-Stick",
+                "Seriennummer": 0,
+                "upgradeArticle": 1,
+                "markup": 0,
+                "Hardware": 0
+            }
+        }                                      
                  
     # Neue Kategorien werden genau hier drüber eingefügt 
     # ==========================================
@@ -2164,17 +2416,68 @@ class MarvinMapper:
                 cat_debug = "Headset (WG36)"
              except Exception as e:
                 print(f"   ❌ Fehler im WG36-Mapping für {filename}: {e}")
-                return    
-        
-        # WG 37 CHECK (MAUSPADS)
-        elif cat_debug == "Mauspad" or "mauspad" in json_str or "mouse pad" in json_str or "desk mat" in json_str:
+                return 
+            
+        # WG 37 CHECK (STREAMING)
+        elif cat_debug == "Streaming" or "streaming" in json_str or "capture card" in json_str or "stream deck" in json_str:
              try:
-                marvin_json = self.map_mousepad_wg37(data, html_content)
+                marvin_json = self.map_streaming_wg37(data, html_content)
                 found_category = True
-                cat_debug = "Mauspad (WG37)"
+                cat_debug = "Streaming (WG37)"
              except Exception as e:
                 print(f"   ❌ Fehler im WG37-Mapping für {filename}: {e}")
-                return
+                return       
+        
+        # WG 38 CHECK (LAUTSPRECHER)
+        elif cat_debug == "Lautsprecher" or "lautsprecher" in json_str or "soundbar" in json_str:
+             try:
+                marvin_json = self.map_speakers_wg38(data, html_content)
+                found_category = True
+                cat_debug = "Lautsprecher (WG38)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG38-Mapping für {filename}: {e}")
+                return  
+            
+        # WG 39 CHECK (MAUSPADS)
+        elif cat_debug == "Mauspad_WG39":
+             try:
+                marvin_json = self.map_mousepad_wg39(data, html_content)
+                found_category = True
+                cat_debug = "Mauspad (WG39)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG39-Mapping für {filename}: {e}")
+                return  
+            
+        # WG 40 CHECK (DESKTOP SETS)
+        elif cat_debug == "Desktop_Set_WG40":
+             try:
+                marvin_json = self.map_desktop_set_wg40(data, html_content)
+                found_category = True
+                cat_debug = "Desktop-Set (WG40)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG40-Mapping für {filename}: {e}")
+                return  
+            
+        # WG 41 CHECK (SERVICE)
+        elif cat_debug == "Service" or "garantie" in json_str or "warranty" in json_str or "care pack" in json_str:
+             try:
+                marvin_json = self.map_service_wg41(data, html_content)
+                found_category = True
+                cat_debug = "Service (WG41)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG41-Mapping für {filename}: {e}")
+                return  
+            
+        # WG 42 CHECK (USB STICKS)
+        elif cat_debug == "USB-Stick" or "usb-stick" in json_str or "flash drive" in json_str or "thumb drive" in json_str:
+             try:
+                marvin_json = self.map_usb_stick_wg42(data, html_content)
+                found_category = True
+                cat_debug = "USB-Stick (WG42)"
+             except Exception as e:
+                print(f"   ❌ Fehler im WG42-Mapping für {filename}: {e}")
+                return            
+            
                
         # Fallback falls Struktur nicht erkannt wird, 
         # neue Kategiorien für den !Dispatcher! 

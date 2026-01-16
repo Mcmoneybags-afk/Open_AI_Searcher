@@ -63,7 +63,12 @@ FOLDER_MAPPING = {
     "34_Tastaturen": "Tastatur_WG34",
     "35_Maeuse": "Maus_WG35", 
     "36_Headsets": "Headset_WG36",
-    "37_Mauspads": "Mauspad",
+    "37_Streaming": "Streaming",
+    "38_Lautsprecher": "Lautsprecher",
+    "39_Mauspads": "Mauspad_WG39",
+    "40_Maus_Tastatur_Set": "Desktop_Set_WG40",
+    "41_Service": "Service",
+    "42_USB_Sticks": "USB-Stick",
     
     
 }
