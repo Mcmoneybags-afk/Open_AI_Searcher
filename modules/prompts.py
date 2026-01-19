@@ -86,62 +86,6 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
 
     # === Dispatcher ===
     
-    if "cpu-kühler" in cat_lower:
-        return base_prompt + """
-        Kategorie: CPU-Kühler
-        ERSTELLE EIN HIERARCHISCHES JSON.
-        WICHTIG: Unterscheide 'Luftkühler' vs 'AiO Wasserkühlung'.
-        Benötigte JSON-Struktur:
-        {
-            "Allgemein": { "Gerätetyp": "Luftkühler oder AiO", "Modell": "Name", "TDP-Klasse": "Watt" },
-            "Kompatibilität": { "Sockel": "AM4¦LGA1700..." },
-            "Technische Daten": { "Bauhöhe (nur Kühler)": "mm", "Radiatorgröße": "mm", "Lüftergröße": "mm", "Lautstärke": "dBA" },
-            "Beleuchtung & Features": { "Beleuchtung": "ARGB", "Anschluss": "PWM" }
-        }
-        """
-        
-    elif "kühler" in cat_lower and "cpu" not in cat_lower: # Speziell für WG 12 "Kühler"
-        return base_prompt + """
-        Kategorie: Kühler (CPU/Allgemein)
-        ERSTELLE EIN HIERARCHISCHES JSON.
-        
-        WICHTIG:
-        1. Identifiziere Sockel-Kompatibilität (z.B. AM4, LGA1700).
-        2. Identifiziere die Bauhöhe in mm.
-        3. Bestimme, ob für AMD, Intel oder beide.
-        
-        Benötigte JSON-Struktur:
-        {
-            "Allgemein": {
-                "Gerätetyp": "Kühler",
-                "Modell": "Name"
-            },
-            "Kompatibilität": {
-                "Sockel": "Liste (z.B. AM4, AM5, LGA115x, LGA1200, LGA1700)"
-            },
-            "Technische Daten": {
-                "Bauhöhe (nur Kühler)": "mm (Wichtig!)",
-                "Lüftergröße": "mm"
-            },
-            "Verschiedenes": {
-                "Besonderheiten": "Features"
-            }
-        }
-        """    
-
-    elif "gehäuselüfter" in cat_lower:
-        return base_prompt + """
-        Kategorie: Gehäuselüfter
-        ERSTELLE EIN HIERARCHISCHES JSON.
-        SPEZIAL: Wenn 'Neutral', leite Größe aus Namen ab, suche NICHT online.
-        Benötigte JSON-Struktur:
-        {
-            "Allgemein": { "Gerätetyp": "Gehäuselüfter", "Modell": "Generic", "Farbe": "Schwarz", "Paketmenge": "1" },
-            "Technische Daten": { "Lüfterdurchmesser": "mm", "Rotationsgeschwindigkeit": "rpm", "Lüfterhöhe": "mm", "Geräuschpegel": "dBA", "Lager": "Typ" },
-            "Anschlüsse & Features": { "Stromanschluss": "PWM", "Beleuchtung": "ARGB" }
-        }
-        """
-
     if "cpu_kuehler" in cat_lower or "cpu-kühler" in cat_lower or "prozessor-kühler" in cat_lower:
         return base_prompt + """
         Kategorie: Prozessor-Kühler (CPU Cooler)
@@ -189,6 +133,49 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
             }
         }
         """
+        
+    elif "kühler" in cat_lower and "cpu" not in cat_lower: # Speziell für WG 12 "Kühler"
+        return base_prompt + """
+        Kategorie: Kühler (CPU/Allgemein)
+        ERSTELLE EIN HIERARCHISCHES JSON.
+        
+        WICHTIG:
+        1. Identifiziere Sockel-Kompatibilität (z.B. AM4, LGA1700).
+        2. Identifiziere die Bauhöhe in mm.
+        3. Bestimme, ob für AMD, Intel oder beide.
+        
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Kühler",
+                "Modell": "Name"
+            },
+            "Kompatibilität": {
+                "Sockel": "Liste (z.B. AM4, AM5, LGA115x, LGA1200, LGA1700)"
+            },
+            "Technische Daten": {
+                "Bauhöhe (nur Kühler)": "mm (Wichtig!)",
+                "Lüftergröße": "mm"
+            },
+            "Verschiedenes": {
+                "Besonderheiten": "Features"
+            }
+        }
+        """    
+
+    elif "gehäuselüfter" in cat_lower:
+        return base_prompt + """
+        Kategorie: Gehäuselüfter
+        ERSTELLE EIN HIERARCHISCHES JSON.
+        SPEZIAL: Wenn 'Neutral', leite Größe aus Namen ab, suche NICHT online.
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": { "Gerätetyp": "Gehäuselüfter", "Modell": "Generic", "Farbe": "Schwarz", "Paketmenge": "1" },
+            "Technische Daten": { "Lüfterdurchmesser": "mm", "Rotationsgeschwindigkeit": "rpm", "Lüfterhöhe": "mm", "Geräuschpegel": "dBA", "Lager": "Typ" },
+            "Anschlüsse & Features": { "Stromanschluss": "PWM", "Beleuchtung": "ARGB" }
+        }
+        """
+
 
     elif "netzteil" in cat_lower or "psu" in cat_lower or "power supply" in cat_lower:
         return base_prompt + """
