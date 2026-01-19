@@ -46,6 +46,16 @@ class MarvinMapper:
             val_str = match.group(1).replace(',', '.')
             return float(val_str)
         return 0.0
+    
+    def clean_value(self, value):
+        """Macht aus Listen Strings und entfernt None/N/A"""
+        if value is None:
+            return ""
+        if isinstance(value, list):
+            return ", ".join(str(v) for v in value)
+        if str(value).lower() in ["n/a", "unknown", "none"]:
+            return ""
+        return str(value).strip()
 
     # ==========================================
     # 🐏 RAM MAPPER 

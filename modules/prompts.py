@@ -142,69 +142,256 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """
 
-    elif "monitor" in cat_lower:
+    if "cpu_kuehler" in cat_lower or "cpu-kühler" in cat_lower or "prozessor-kühler" in cat_lower:
         return base_prompt + """
-        Kategorie: Monitor
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Prozessor-Kühler (CPU Cooler)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS:
+        1. Kompatibilität: Liste ALLE unterstützten Sockel auf (z.B. LGA1700, AM5, AM4, LGA1200). Das ist das wichtigste Feld!
+        2. Maße: Die HÖHE ist kritisch für Gehäuse-Kompatibilität. Suche explizit danach.
+        3. Lüfter: Details zu RPM, Lautstärke (dBA/Sone) und Anschluss (4-Pin PWM) sind Pflicht.
+        4. Material: Unterscheide zwischen Kühlerboden (Kupfer) und Lamellen (Alu).
+
         Benötigte JSON-Struktur:
         {
-            "Allgemein": { "Gerätetyp": "Monitor", "Modell": "Name", "Farbe": "Schwarz" },
-            "Display": { "Diagonale": "Zoll", "Auflösung": "BxH", "Bildwiederholrate": "Hz", "Panel-Typ": "IPS/VA", "Helligkeit": "cd/m²" },
-            "Schnittstellen": { "Anschlüsse": "Liste" },
-            "Verschiedenes": { "Besonderheiten": "Sync, Pivot", "Zubehör": "Kabel" },
-            "Energieversorgung": { "Stromverbrauch SDR (Eingeschaltet)": "kWh" }
+            "Allgemein": {
+                "Produkttyp": "z.B. Prozessor-Luftkühler",
+                "Packungsinhalt": "z.B. Wärmeleitpaste, Montagekit",
+                "Breite": "cm",
+                "Tiefe": "cm",
+                "Höhe": "cm (Wichtig!)",
+                "Gewicht": "g oder kg",
+                "Farbe": "z.B. Schwarz / Weiß"
+            },
+            "Kühlkörper und Lüfter": {
+                "Kompatibel mit": "Liste der Sockel (z.B. LGA1700 Socket, Socket AM5, LGA1200)",
+                "Kühlermaterial": "z.B. Aluminium und Kupfer",
+                "Lüfterdurchmesser": "z.B. 120 mm",
+                "Gebläsehöhe": "Dicke des Lüfters (z.B. 25 mm)",
+                "Lüfterlager": "z.B. Hydro Bearing oder Fluid Dynamic Bearing",
+                "Drehgeschwindigkeit": "z.B. 500-1800 U/min",
+                "Luftstrom": "z.B. 78 CFM",
+                "Luftdruck": "z.B. 2.7 mm",
+                "Geräuschpegel": "z.B. 18 - 30 dBA",
+                "Netzanschluss": "z.B. PWM, 4-polig",
+                "Nennspannung": "12 V",
+                "Energieverbrauch": "Watt",
+                "Merkmale": "z.B. 4 Heatpipes, Direct Contact Technology, RGB"
+            },
+            "Verschiedenes": {
+                "MTBF": "Lebensdauer (z.B. 60.000 Stunden)",
+                "Montagekit": "Mitgeliefert",
+                "Kennzeichnung": "z.B. CE, RoHS"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer (z.B. 2 Jahre)"
+            }
         }
         """
 
-    elif "netzteil" in cat_lower:
+    elif "netzteil" in cat_lower or "psu" in cat_lower or "power supply" in cat_lower:
         return base_prompt + """
-        Kategorie: Netzteil
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Netzteil (PSU)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS:
+        1. Anschlüsse: Liste GENAU auf, wie viele Stecker vorhanden sind (z.B. "3 x 8-poliger PCI Express", "1 x 16-pin 12VHPWR").
+        2. Zertifizierung: Suche nach "80 PLUS" (Gold, Platinum, Titanium, Bronze).
+        3. Modularität: Ist es "Voll-modular", "Teil-modular" oder "Nicht modular"?
+        4. Ausgangsstrom: Versuche die Ampere-Werte für +3.3V, +5V und +12V zu finden.
+
         Benötigte JSON-Struktur:
         {
-            "Allgemein": { "Gerätetyp": "Netzteil", "Netzteil-Formfaktor": "ATX" },
-            "Stromversorgungsgerät": { "Leistungskapazität": "Watt", "80-PLUS-Zertifizierung": "Zertifikat", "Angaben zu Ausgangsleistungsanschlüssen": "Liste" },
-            "Verschiedenes": { "Kühlsystem": "Lüfter" },
-            "Abmessungen und Gewicht": { "Breite": "cm", "Tiefe": "cm", "Höhe": "cm" }
+            "Allgemein": {
+                "Gerätetyp": "Netzteil - intern",
+                "Spezifikationseinhaltung": "z.B. ATX12V 3.0 / EPS12V 2.92",
+                "Netzteil-Formfaktor": "z.B. ATX",
+                "Farbe": "z.B. Schwarz"
+            },
+            "Stromversorgungsgerät": {
+                "Eingangsspannung": "z.B. Wechselstrom 100-240 V",
+                "Leistungskapazität": "Wattzahl (z.B. 850 Watt)",
+                "80-PLUS-Zertifizierung": "z.B. 80 PLUS Gold",
+                "Modulare Kabelverwaltung": "Ja / Nein",
+                "Angaben zu Ausgangsleistungsanschlüssen": "Detaillierte Liste der Kabel (z.B. 1x 24-Pin, 2x EPS, 4x PCIe, 1x 12VHPWR)",
+                "Ausgangsstrom": "Ampere-Liste (z.B. +3.3V - 20 A / +5V - 20 A / +12V - 70 A)",
+                "Effizienz": "z.B. 90% bei 50% Last (falls verfügbar)"
+            },
+            "Verschiedenes": {
+                "Besonderheiten": "z.B. Lüfter mit Doppelkugellager, Überspannungsschutz (OVP), Zero RPM Mode",
+                "Zubehör im Lieferumfang": "z.B. Kabelbinder, Schrauben, Netzkabel",
+                "Kühlsystem": "z.B. 135-mm-Lüfter"
+            },
+            "Abmessungen und Gewicht": {
+                "Breite": "cm",
+                "Tiefe": "cm",
+                "Höhe": "cm",
+                "Gewicht": "kg"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer (z.B. Begrenzte Garantie - 10 Jahre)"
+            }
         }
         """
 
-    elif "prozessor" in cat_lower:
+    elif "prozessor" in cat_lower or "cpu" in cat_lower:
         return base_prompt + """
-        Kategorie: Prozessor
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Prozessor (CPU)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS:
+        1. Kerne/Takt (Intel Hybrid): Unterscheide ZWINGEND zwischen P-Cores (Performance) und E-Cores (Efficiency) bei Takt und Anzahl.
+           Format: "2 GHz (P-Kern) / 1.5 GHz (E-Kern)".
+        2. Verpackung: "Box" (Retail, oft mit Kühler) vs. "OEM/Tray" (Nur CPU).
+        3. Cache: Nenne L2 und L3 Cache separat oder als "Cache-Speicher-Details".
+        4. Grafik: Prüfe auf integrierte Grafik (iGPU). (Achtung: Intel 'F'-Modelle haben KEINE Grafik!).
+
         Benötigte JSON-Struktur:
         {
-            "Allgemein": { "Produkttyp": "Prozessor", "Serie": "Core i9", "Modell": "14900K" },
-            "Prozessor": { "Sockel": "LGA1700", "Gesamtkerne": "24", "P-Cores (Anzahl)": "8" },
-            "Speicher-Controller": { "Unterstützter Speichertyp": "DDR5" },
-            "Integrierte Grafik": { "Typ": "UHD 770" }
+            "Allgemein": {
+                "Produkttyp": "Prozessor",
+                "Prozessorhersteller": "Intel oder AMD",
+                "Prozessorfamilie": "z.B. Intel Core i9 oder AMD Ryzen 5",
+                "Prozessor": "Modell (z.B. 14900F oder 7600X)",
+                "Prozessorsockel": "z.B. FCLGA1700 Socket oder Socket AM5",
+                "Box": "Ja / Nein (oder Verpackung: Tray)"
+            },
+            "Prozessor": {
+                "Anz. der Kerne": "Gesamt + Split (z.B. 24 Kerne (8P + 16E))",
+                "Anz. der Threads": "Anzahl",
+                "Taktfrequenz": "Basis (z.B. 2 GHz (P-Kern) / 1.5 GHz (E-Kern))",
+                "Max. Turbo-Taktfrequenz": "Turbo (z.B. 5.8 GHz (P-Kern))",
+                "Cache-Speicher": "Gesamt (z.B. 36 MB)",
+                "Cache-Speicher-Details": "Details (z.B. Smart Cache - 36 MB ¦ L2 - 32 MB)",
+                "Thermal Design Power (TDP)": "Basis-Watt (z.B. 65 W)",
+                "Maximale Turbo-Leistung": "Max-Watt (z.B. 219 W)",
+                "Herstellungsprozess": "z.B. 10 nm oder 5 nm"
+            },
+            "Grafik": {
+                "Eingebaute Grafikadapter": "Ja / Nein",
+                "On-Board Grafikadaptermodell": "Modell (z.B. Intel UHD 770 oder AMD Radeon Graphics)",
+                "On-Board Grafikadapter Basisfrequenz": "MHz",
+                "Maximale dynamische Frequenz der On-Board Grafikadapter": "MHz"
+            },
+            "Speicher": {
+                "Maximaler interner Speicher, vom Prozessor unterstützt": "z.B. 128 GB",
+                "Speichertaktraten, vom Prozessor unterstützt": "z.B. 5200 MHz",
+                "Speicherkanäle": "z.B. Dual-channel",
+                "ECC": "Ja / Nein"
+            },
+            "E-/A-Konfiguration": {
+                "PCI Express Revision": "z.B. 4.0/5.0",
+                "Anz. PCI Express Lanes": "Anzahl"
+            },
+            "Architektur-Merkmale": {
+                "Besonderheiten": "Liste (z.B. Hyper-Threading, DL Boost, AVX2, EXPO, Intel Thread Director)"
+            },
+            "Verschiedenes": {
+                "Verpackung": "z.B. OEM/Tray oder Box",
+                "Zubehör im Lieferumfang": "z.B. Kühler (nur wenn Box)"
+            }
         }
         """
 
-    elif "grafikkarte" in cat_lower:
+    elif "grafikkarte" in cat_lower or "gpu" in cat_lower or "graphics card" in cat_lower:
         return base_prompt + """
-        Kategorie: Grafikkarte
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Grafikkarte (GPU)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS:
+        1. Maße: "Tiefe" ist meist die Länge der Karte (z.B. 33 cm). "Breite" ist die Dicke (Slots, z.B. 5 cm).
+        2. Leistung: Unterscheide zwischen "Erforderliche Leistungsversorgung" (Netzteil-Empfehlung, z.B. 750W) und "Leistungsaufnahme" (TBP/TGP der Karte selbst, z.B. 300W).
+        3. Kerne: Bei Nvidia "CUDA-Kerne", bei AMD "Stream Prozessoren" (oder Schader-Einheiten) zählen.
+
         Benötigte JSON-Struktur:
         {
-            "Allgemein": { "Gerätetyp": "Grafikkarten", "Chipsatz-Hersteller": "NVIDIA", "Grafikprozessor": "RTX 4070" },
-            "Arbeitsspeicher": { "Grösse": "16 GB", "Technologie": "GDDR6" },
-            "Systemanforderungen": { "Erforderliche Leistungsversorgung": "750 W", "Zusätzliche Anforderungen": "Stecker" },
-            "Abmessungen und Gewicht": { "Breite": "mm", "Tiefe": "mm", "Höhe": "mm" }
+            "Allgemein": {
+                "Gerätetyp": "Grafikkarten",
+                "Bustyp": "z.B. PCI Express 4.0 x16 oder 5.0",
+                "Grafikprozessor": "Voller Name (z.B. NVIDIA GeForce RTX 4070 Ti)",
+                "Boost-Takt": "MHz",
+                "CUDA-Kerne": "Anzahl (nur bei Nvidia füllen, sonst weglassen oder als 'Stream Prozessoren' labeln)",
+                "Max Auflösung": "z.B. 7680 x 4320",
+                "Anzahl der max. unterstützten Bildschirme": "Anzahl (z.B. 4)",
+                "Schnittstellendetails": "Liste (z.B. 3 x DisplayPort, 1 x HDMI)",
+                "API-Unterstützung": "z.B. DirectX 12 Ultimate, OpenGL 4.6",
+                "Besonderheiten": "Liste von Features (z.B. Dual BIOS, RGB, Backplate, Raytracing Cores)"
+            },
+            "Arbeitsspeicher": {
+                "Grösse": "z.B. 16 GB",
+                "Technologie": "z.B. GDDR6X SDRAM",
+                "Speichergeschwindigkeit": "z.B. 21 Gbps",
+                "Busbreite": "z.B. 192-bit oder 256-bit"
+            },
+            "Systemanforderungen": {
+                "Erfoderliche Leistungsversorgung": "Empfohlenes Netzteil in Watt (z.B. 750 W)",
+                "Zusätzliche Anforderungen": "Stromstecker (z.B. 1x 16-Pin 12VHPWR oder 2x 8-Pin)"
+            },
+            "Verschiedenes": {
+                "Leistungsaufnahme im Betrieb": "Verbrauch der Karte in Watt (z.B. 285 Watt)",
+                "Zubehör im Lieferumfang": "z.B. Grafikkartenhalterung, Adapter",
+                "Breite": "Dicke der Karte in cm (z.B. 5 cm)",
+                "Tiefe": "Länge der Karte in cm (z.B. 30 cm)",
+                "Höhe": "Höhe der Karte in cm (z.B. 12 cm)",
+                "Gewicht": "kg"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer (z.B. 3 Jahre)"
+            }
         }
         """
 
-    elif "mainboard" in cat_lower:
+    elif "mainboard" in cat_lower or "motherboard" in cat_lower:
         return base_prompt + """
-        Kategorie: Mainboard
-        ERSTELLE EIN HIERARCHISCHES JSON.
-        Benötigte JSON-Struktur:
+        Kategorie: Mainboard (Motherboard)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS:
+        1. RAM: Unterscheide strikt zwischen DDR4 und DDR5. Nenne Max. Größe und Taktraten.
+        2. LAN/WLAN: Suche nach "2.5 Gigabit" oder "10 Gigabit". Wenn Wi-Fi dabei ist, nenne den Standard (z.B. Wi-Fi 6E).
+        3. Schnittstellen: Trenne strikt zwischen "Schnittstellen" (hinten am Panel) und "Interne Schnittstellen" (Header auf dem Board).
+        4. M.2: Zähle die Slots genau (z.B. 2x M.2 oder 3x M.2).
+
+        Benötigte JSON-Struktur (orientiert an IT-Scope):
         {
-            "Allgemein": { "Produkttyp": "Motherboard", "Chipsatz": "B650", "Prozessorsockel": "AM5" },
-            "Unterstützter RAM": { "Technologie": "DDR5", "Anzahl Steckplätze": "4" },
-            "Erweiterung / Konnektivität": { "Schnittstellen (Intern)": "Liste", "Schnittstellen (Rückseite)": "Liste", "Speicherschnittstellen": "SATA/M.2" },
-            "LAN": { "Netzwerkschnittstellen": "WiFi/LAN" }
+            "Allgemein": {
+                "Produkttyp": "z.B. Motherboard - ATX",
+                "Chipsatz": "z.B. Intel Z790 oder AMD B650",
+                "Prozessorsockel": "z.B. LGA1700-Sockel oder Socket AM5",
+                "Kompatible Prozessoren": "z.B. Unterstützt 12./13./14. Gen Intel Core",
+                "Max. Anz. Prozessoren": "1"
+            },
+            "Unterstützter RAM": {
+                "Max. Größe": "z.B. 128 GB",
+                "Technologie": "z.B. DDR5",
+                "Bustakt": "Liste der Taktraten (z.B. 6000 MHz (O.C.), 5600 MHz, 4800 MHz)",
+                "Besonderheiten": "z.B. Dual Channel, XMP, EXPO",
+                "Registriert oder gepuffert": "Ungepuffert"
+            },
+            "Audio": {
+                "Typ": "z.B. HD Audio (8-Kanal)",
+                "Audio Codec": "z.B. Realtek ALC1220"
+            },
+            "LAN": {
+                "Netzwerkschnittstellen": "z.B. 2.5 Gigabit Ethernet, Wi-Fi 6E, Bluetooth 5.3"
+            },
+            "Erweiterung/Konnektivität": {
+                "Erweiterungssteckplätze": "Liste (z.B. 1x PCIe 5.0 x16, 2x PCIe 3.0 x1)",
+                "Speicherschnittstellen": "Liste (z.B. 4x SATA-600, 3x M.2)",
+                "Schnittstellen": "Hinten (z.B. 1x HDMI, 1x USB-C 3.2 Gen 2x2, 4x USB 3.2 Gen 1, Audio)",
+                "Interne Schnittstellen": "Innen (z.B. 1x USB-C Header, 2x USB 2.0 Header, 1x Thunderbolt Header)",
+                "Stromanschlüsse": "z.B. 1x 24-Pin ATX, 2x 8-Pin 12V"
+            },
+            "Besonderheiten": {
+                "BIOS-Typ": "z.B. AMI UEFI",
+                "Hardwarefeatures": "Liste der Marketing-Features (z.B. Q-Latch, Digi+ VRM, Aura Sync, M.2 Thermal Guard)"
+            },
+            "Verschiedenes": {
+                "Zubehör im Lieferumfang": "z.B. WLAN-Antenne, SATA-Kabel, Schrauben",
+                "Breite": "cm",
+                "Tiefe": "cm"
+            }
         }
         """
 
@@ -256,14 +443,50 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
 
     elif "gehäuse" in cat_lower:
         return base_prompt + """
-        Kategorie: Gehäuse
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Gehäuse (PC Case)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS (ANTI-HALLUCINATION):
+        1. Formfaktor-Check: Ein "Micro-ATX" Gehäuse unterstützt KEIN Standard-ATX Mainboard! Prüfe das genau.
+        2. Lüfter: Wenn das Netzteil (PSU) vorne montiert wird (z.B. bei Mesh-Gehäusen wie AP201), gibt es vorne KEINE Lüfter!
+        3. CPU-Kühler: Suche nach dem exakten mm-Wert. Rate nicht "180mm", wenn es oft 170mm oder 160mm sind.
+        4. Wenn eine Info fehlt, schreibe "N/A" statt zu raten.
+
         Benötigte JSON-Struktur:
         {
-            "Allgemein": { "Formfaktor": "Midi Tower", "Max. Mainboard-Größe": "ATX" },
-            "Kühlsystem (Installiert)": { "Lüfter (Vorne)": "Anzahl" },
-            "Systemanforderungen": { "Max. Höhe CPU-Kühler": "mm", "Max. Länge Grafikkarte": "mm" },
-            "Abmessungen und Gewicht": { "Breite": "mm", "Höhe": "mm", "Tiefe": "mm" }
+            "Allgemein": {
+                "Formfaktor": "z.B. Midi Tower, Mini Tower, MicroATX Case",
+                "Max. Mainboard-Größe": "Der größte unterstützte Standard (z.B. Micro-ATX)",
+                "Unterstützte Motherboards": "Liste der Formate (WICHTIG: Kein ATX bei mATX-Gehäusen!)",
+                "Seitenplatte mit Fenster": "Ja / Nein",
+                "Seitliches Plattenmaterial mit Fenster": "z.B. Gehärtetes Glas (Tempered Glass)",
+                "Produktmaterial": "z.B. Stahl, Mesh",
+                "Farbe": "z.B. Schwarz, Weiß",
+                "Anzahl interner Einbauschächte": "Gesamtanzahl 2.5/3.5 Zoll",
+                "Kühlsystem": "Exakte Positionen (Vorne/Oben/Hinten/Unten). Beachte PSU-Position!",
+                "Max. Höhe des CPU-Kühlers": "mm (Exakter Wert!)",
+                "Maximale Länge Videokarte": "mm",
+                "Maximallänge der Stromversorgung": "mm",
+                "Systemgehäuse-Merkmale": "z.B. Mesh-Design, Werkzeuglose Montage"
+            },
+            "Erweiterung / Konnektivität": {
+                "Erweiterungseinschübe": "Detail-Liste",
+                "Erweiterungssteckplätze": "Anzahl (z.B. 4 bei mATX, 7 bei ATX)",
+                "Schnittstellen": "Front-Panel Anschlüsse (USB-C, Audio etc.)"
+            },
+            "Stromversorgung": {
+                "Stromversorgungsgerät": "z.B. Keine Spannungsversorgung",
+                "Spezifikationseinhaltung": "z.B. ATX"
+            },
+            "Abmessungen und Gewicht": {
+                "Breite": "mm",
+                "Tiefe": "mm",
+                "Höhe": "mm",
+                "Gewicht": "kg"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer"
+            }
         }
         """
         

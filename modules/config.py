@@ -13,7 +13,7 @@ LOG_FILE = "marvin_pipeline.log"
 
 IMAGES_FOLDER = "input_images" 
 
-MODEL_NAME = "gpt-4o-mini" # Optionale Modelle wären "gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"
+MODEL_NAME = "gpt-4o" # Optionale Modelle wären "gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"
 TEMPERATURE = 0 # Temperatur bestimmt das Kreative level der Antworten ==> Mögliche werte sind (0, 1, 2) wobei 0 sehr deterministisch ist und 2 sehr Kreativ
 
 # --- API KEYS ---
