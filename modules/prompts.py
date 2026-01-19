@@ -601,64 +601,76 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     elif "kabel" in cat_lower or "adapter" in cat_lower or "cable" in cat_lower:
         return base_prompt + """
         Kategorie: Kabel & Adapter
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Identifiziere die Anschlüsse GENAU (z.B. HDMI Stecker auf DVI Buchse).
-        2. Identifiziere die Länge (falls Kabel).
-        3. Identifiziere den Standard (z.B. Cat6, HDMI 2.1, USB 3.0).
-        
+        CRITICAL INSTRUCTIONS:
+        1. Anschlüsse: Unterscheide ZWINGEND zwischen Stecker (Male) und Buchse (Female). Beispiel: "USB-C Stecker auf HDMI Buchse".
+        2. Typ: Ist es ein Adapter (kurz/fest) oder ein Kabel (Länge)?
+        3. Specs: Nenne Standards wie HDMI 2.1, Cat7, USB 3.2 Gen 2.
+        4. Video: Bei Videokabeln Max. Auflösung (z.B. 4K@60Hz) suchen.
+
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Gerätetyp": "Kabel oder Adapter",
-                "Modell": "Name",
-                "Farbe": "z.B. Schwarz"
+                "Kabeltyp": "z.B. Netzwerkkabel - CAT 6a oder Videokabel - Adapter",
+                "Länge": "z.B. 2 m (oder N/A bei kompakten Adaptern)",
+                "Farbe": "z.B. Schwarz",
+                "Außenmaterial": "z.B. PVC, Gewebeummantelung (Nylon)",
+                "Schirmungsmaterial": "z.B. Aluminiumfolie (bei hochwertigen Kabeln)"
+            },
+            "Konnektivität": {
+                "Anschluss (1. Ende)": "z.B. 19-poliger HDMI Typ A - Stecker",
+                "Anschluss (2. Ende)": "z.B. 19-poliger HDMI Typ A - Stecker",
+                "Steckerbeschichtung": "z.B. Gold"
             },
             "Technische Daten": {
-                "Anschluss A": "z.B. HDMI (Stecker)",
-                "Anschluss B": "z.B. DVI-D (Buchse)",
-                "Länge": "z.B. 1.5 m (oder N/A bei Adaptern)",
-                "Standard": "z.B. Cat6a, HDMI 2.1, USB 3.0"
+                "Besonderheiten": "z.B. 4K Unterstützung, Ethernet-Kanal (HEC), HDR-Support, Rastnasenschutz",
+                "Max. Übertragungsrate": "z.B. 48 Gbps (HDMI 2.1) oder 10 Gbit/s (Netzwerk)",
+                "Standard": "z.B. HDMI 2.1 oder USB 3.2 Gen 2x2"
             },
-            "Verschiedenes": {
-                "Besonderheiten": "z.B. Vergoldete Kontakte, Geschirmt"
+            "Herstellergarantie": {
+                "Service und Support": "Dauer (z.B. 2 Jahre)"
             }
         }
-        """ 
+        """
         
     elif "soundkarte" in cat_lower or "sound card" in cat_lower or "audio interface" in cat_lower:
         return base_prompt + """
-        Kategorie: Soundkarte
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Soundkarte (Audio Interface)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Schnittstelle: Intern (PCIe/PCI) oder Extern (USB).
-        2. Formfaktor: Prüfe explizit auf "Low Profile" (für schmale Gehäuse).
-        3. Kanäle: 5.1, 7.1, Stereo.
+        CRITICAL INSTRUCTIONS:
+        1. Kanäle: 5.1, 7.1 oder Stereo?
+        2. Qualität: Suche nach Bit-Tiefe (z.B. 24-bit) und Abtastrate (z.B. 192kHz).
+        3. SNR: Signal-Rausch-Verhältnis in dB (z.B. 106 dB oder 122 dB).
+        4. Anschlüsse: Optisch (Toslink)? Kopfhörerverstärker?
 
         Benötigte JSON-Struktur:
         {
-            "Allgemein": {
-                "Gerätetyp": "Soundkarte (Intern/Extern)",
-                "Modell": "Name",
-                "Schnittstelle": "z.B. PCIe x1 oder USB 2.0"
-            },
             "Audio": {
-                "Soundmodus": "z.B. 5.1 Surround oder 7.1",
-                "Auflösung": "z.B. 32-bit / 384 kHz",
-                "Rauschabstand (SNR)": "z.B. 122 dB"
-            },
-            "Technische Daten": {
-                "Low Profile": "Ja oder Nein (bzw. Low Profile Slotblech im Lieferumfang)",
+                "Gerätetyp": "z.B. Soundkarte (Intern) oder USB-Audio-Interface",
+                "Audio Kanäle": "z.B. 7.1 Kanäle",
+                "Audioqualität": "z.B. 24 Bit",
+                "Digital-Analog-Umwandlung": "z.B. 24-bit/192kHz",
+                "Line-Out Signal-Rausch-Verhältnis (SNR)": "z.B. 106 dB",
                 "Chipsatz": "z.B. Creative Sound Core3D"
             },
-            "Anschlüsse": {
-                "Eingänge": "Liste (Mikrofon, Line-In)",
-                "Ausgänge": "Liste (Kopfhörer, Optisch/Toslink)"
+            "Anschlüsse und Schnittstellen": {
+                "Hostschnittstelle": "z.B. PCI-E oder USB 2.0",
+                "Optischer Audio-Digitalausgang": "Ja / Nein (oder Anzahl)",
+                "Kopfhörerausgänge": "Anzahl (z.B. 1)",
+                "Mikrofon-Eingang": "Ja / Nein",
+                "Line-in": "Ja / Nein",
+                "Line-out": "Ja / Nein"
+            },
+            "Systemanforderung": {
+                "Unterstützt Windows-Betriebssysteme": "Ja / Nein"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer (z.B. 2 Jahre)"
             }
         }
-        """   
+        """  
     
     elif "audio" in cat_lower or "mikrofon" in cat_lower or "microphone" in cat_lower or "dac" in cat_lower or "interface" in cat_lower:
         return base_prompt + """
@@ -697,37 +709,41 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     elif "webcam" in cat_lower or "kamera" in cat_lower or "camera" in cat_lower:
         return base_prompt + """
         Kategorie: Webcam
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Identifiziere die MAXIMALE Auflösung (z.B. 1080p, 4K UHD, 720p).
-        2. Identifiziere die Framerate bei max. Auflösung (z.B. 30 fps, 60 fps).
-        3. Identifiziere Anschluss (USB-A, USB-C) und Features (Mikrofon, Autofokus).
-        
+        CRITICAL INSTRUCTIONS:
+        1. Auflösung: Unterscheide zwischen Foto-Megapixeln und Video-Auflösung (z.B. 1920 x 1080).
+        2. Framerate: Wichtig für Streamer (30 fps vs 60 fps).
+        3. Features: Autofokus? Privacy Cover? Ringlicht?
+        4. Mikrofon: Stereo oder Mono?
+
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Gerätetyp": "Webcam",
                 "Modell": "Name",
-                "Farbe": "z.B. Schwarz"
+                "Farbe": "z.B. Schwarz",
+                "Anschlusstechnik": "z.B. Kabelgebunden (USB 2.0 / 3.0)"
             },
             "Video": {
-                "Max. Auflösung": "z.B. 1920 x 1080 (Full HD) oder 4K UHD",
-                "Max. Bildrate": "z.B. 60 fps (oder 30 fps)",
-                "Fokus-Einstellung": "z.B. Autofokus oder Fixfokus"
+                "Max. Digitalvideo-Auflösung": "z.B. 1920 x 1080 (Full HD) oder 3840 x 2160 (4K)",
+                "Max. Bildrate": "z.B. 60 fps (bei 1080p)",
+                "Digitales Zoom": "z.B. 4x (falls verfügbar)",
+                "Fokus-Einstellung": "z.B. Autofokus / Fixfokus"
             },
             "Audio": {
-                "Mikrofon integriert": "Ja / Nein",
-                "Mikrofon-Typ": "z.B. Stereo oder Mono mit Rauschunterdrückung"
-            },
-            "Konnektivität": {
-                "Schnittstelle": "z.B. USB 2.0 oder USB-C 3.0"
+                "Audio-Unterstützung": "Ja: Integriertes Mikrofon",
+                "Mikrofon-Typ": "z.B. Stereo / Dual-Mikrofon"
             },
             "Verschiedenes": {
-                "Besonderheiten": "z.B. Privacy Cover, Stativgewinde, Ringlicht"
+                "Leistungsmerkmale": "z.B. Privacy Shutter, Rauschunterdrückung, Stativgewinde, RightLight Technologie",
+                "Zubehör im Lieferumfang": "z.B. Stativ, USB-Kabel"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer"
             }
         }
-        """    
+        """   
         
     elif "gamingstuhl" in cat_lower or "gaming chair" in cat_lower or "bürostuhl" in cat_lower:
         return base_prompt + """
@@ -762,33 +778,56 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """  
         
-    # Hier ergänzen wir "netzwerkadapter" und "wlan stick"
-    elif "netzwerkkarte" in cat_lower or "network card" in cat_lower or "nic" in cat_lower or "netzwerkadapter" in cat_lower or "wlan stick" in cat_lower:
+    elif "netzwerkkarte" in cat_lower or "nic" in cat_lower or "network card" in cat_lower or "ethernet adapter" in cat_lower:
         return base_prompt + """
-        Kategorie: Netzwerkkarte / Netzwerkadapter
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Netzwerkkarte (NIC)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Geschwindigkeit: z.B. 1 Gbit, 2.5 Gbit, 10 Gbit oder WiFi 6E/7.
-        2. Schnittstelle: PCIe (Intern) oder USB (Extern).
-        3. Formfaktor: Prüfe auf "Low Profile" (für Server/Mini-PCs).
-        4. Anschlüsse: RJ45 (Kupfer), SFP+ (Glasfaser) oder Antennen (WLAN).
+        CRITICAL INSTRUCTIONS:
+        1. Schnittstelle: Host (PCI, PCI Express, USB) vs. Netzwerk (RJ-45, SFP).
+        2. Geschwindigkeit: 10/100/1000 Mbit/s oder höher (2.5 / 10 Gbit/s)?
+        3. Standards: IEEE Liste (z.B. 802.3, 802.3u, 802.1Q).
+        4. Features: Wake-on-LAN (WoL), Jumbo Frames, Vollduplex?
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Gerätetyp": "Netzwerkadapter",
-                "Modell": "Name"
+                "Gerätetyp": "Netzwerkkarte",
+                "Formfaktor": "z.B. Plug-in-Karte",
+                "Farbe": "z.B. Grün / Schwarz"
             },
-            "Technische Daten": {
-                "Übertragungsrate": "z.B. 10 Gbps oder 2400 Mbps (WiFi)",
-                "Schnittstelle": "z.B. PCIe x4 oder USB 3.0",
-                "Anschlusstyp": "z.B. 1x RJ45 oder 2x SFP+ oder WiFi",
-                "Low Profile": "Ja oder Nein"
+            "Anschlüsse und Schnittstellen": {
+                "Hostschnittstelle": "z.B. PCI Express x1 oder PCI",
+                "Schnittstelle": "z.B. Ethernet",
+                "Anzahl Ethernet-LAN-Anschlüsse (RJ-45)": "Anzahl (z.B. 1)",
+                "Übertragungstechnik": "Verkabelt"
             },
             "Netzwerk": {
-                "Standards": "z.B. IEEE 802.3an, WiFi 6 (802.11ax)",
-                "Chipsatz": "z.B. Intel X550"
+                "Maximale Datenübertragungsrate": "z.B. 1000 Mbit/s",
+                "Ethernet LAN Datentransferraten": "z.B. 10,100,1000 Mbit/s",
+                "Verkabelungstechnologie": "z.B. 10/100/1000BaseT(X)",
+                "Netzstandard": "Liste (z.B. IEEE 802.3, IEEE 802.3u, IEEE 802.1Q)",
+                "Vollduplex": "Ja / Nein",
+                "Jumbo Frames Unterstützung": "Ja / Nein",
+                "Wake-on-LAN bereit": "Ja / Nein",
+                "Unterstützung Datenflusssteuerung": "Ja / Nein"
+            },
+            "Systemanforderung": {
+                "Unterstützt Windows-Betriebssysteme": "Liste der Versionen",
+                "Unterstützte Linux-Betriebssysteme": "Ja / Nein"
+            },
+            "Betriebsbedingungen": {
+                "Temperaturbereich in Betrieb": "z.B. 0 - 40 °C",
+                "Temperaturbereich bei Lagerung": "z.B. -40 - 70 °C",
+                "Luftfeuchtigkeit in Betrieb": "z.B. 10 - 90 %"
+            },
+            "Design": {
+                "Zertifizierung": "z.B. FCC, CE",
+                "Eingebaut": "Ja",
+                "LED-Anzeigen": "Ja / Nein"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer"
             }
         }
         """
