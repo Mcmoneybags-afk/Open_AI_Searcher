@@ -417,16 +417,103 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """
 
-    elif "speicher" in cat_lower or "ssd" in cat_lower or "hdd" in cat_lower:
+    elif "speicher" in cat_lower or "ssd" in cat_lower or "hdd" in cat_lower or "festplatte" in cat_lower:
         return base_prompt + """
-        Kategorie: Speicher (SSD/HDD)
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Speicher (SSD / HDD)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS:
+        1. Geschwindigkeit: Lesen/Schreiben in MB/s (z.B. 3500 MB/s).
+        2. Kapazität: Exakte Größe (z.B. 1000 GB, 2 TB).
+        3. Schnittstelle: PCIe 4.0, SATA III etc.
+        4. Formfaktor: M.2 2280, 2.5 Zoll etc.
+        5. Haltbarkeit: Suche nach TBW (Total Bytes Written) und MTBF.
+
         Benötigte JSON-Struktur:
         {
-            "Allgemein": { "Gerätetyp": "SSD", "Kapazität": "1 TB", "Schnittstelle": "PCIe 4.0" },
-            "Leistung": { "Interner Datendurchsatz (Lesen)": "MBps" }
+            "Merkmale": {
+                "Gerätetyp": "z.B. SSD oder HDD",
+                "SSD Speicherkapazität": "z.B. 1000 GB",
+                "SSD-Formfaktor": "z.B. M.2 2280",
+                "Schnittstelle": "z.B. PCI Express 4.0 x4 (NVMe)",
+                "NVMe": "Ja / Nein",
+                "Komponente für": "z.B. PC/notebook"
+            },
+            "Leistung": {
+                "Lesegeschwindigkeit": "z.B. 7000 MB/s",
+                "Schreibgeschwindigkeit": "z.B. 5000 MB/s",
+                "Mittlere Betriebsdauer zwischen Ausfällen (MTBF)": "z.B. 1.500.000 h",
+                "TBW": "z.B. 600 TB"
+            },
+            "Betriebsbedingungen": {
+                "Betriebstemperatur": "z.B. 0 - 70 °C",
+                "Temperaturbereich bei Lagerung": "z.B. -40 - 85 °C"
+            },
+            "Gewicht und Abmessungen": {
+                "Breite": "mm",
+                "Tiefe": "mm",
+                "Höhe": "mm",
+                "Gewicht": "g"
+            },
+            "Technische Details": {
+                "Nachhaltigkeitszertifikate": "z.B. RoHS, CE"
+            }
         }
         """
+        
+    elif "monitor" in cat_lower or "tft" in cat_lower or "display" in cat_lower or "bildschirm" in cat_lower:
+        return base_prompt + """
+        Kategorie: Monitor (TFT / Display)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS:
+        1. Auflösung/Hz: Suche nach Details pro Anschluss (z.B. "DP: 165Hz, HDMI: 144Hz").
+        2. Panel: Welcher Typ? (IPS, VA, TN, OLED, QD-OLED).
+        3. Ergonomie: Höhenverstellbar? Neigbar? VESA-Mount vorhanden?
+        4. Farbe: Farbraumabdeckung (sRGB, DCI-P3, Adobe RGB) detailliert listen.
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "z.B. LED-hintergrundbeleuchteter LCD-Monitor",
+                "Energie Effizienzklasse": "z.B. Klasse F",
+                "Diagonalabmessung": "z.B. 27 Zoll (69 cm)",
+                "Geschwungener Bildschirm": "Ja (1500R) / Nein",
+                "Panel-Typ": "z.B. IPS, VA, Rapid VA",
+                "Seitenverhältnis": "z.B. 16:9",
+                "Native Auflösung": "z.B. WQHD 2560 x 1440 (DisplayPort: 170 Hz)",
+                "Helligkeit": "z.B. 400 cd/m²",
+                "Kontrast": "z.B. 1000:1 / 100M:1 (dynamisch)",
+                "HDR-Zertifizierung": "z.B. DisplayHDR 400",
+                "Reaktionszeit": "z.B. 1 ms (GtG), 0.5 ms (MPRT)",
+                "Farbunterstützung": "z.B. 1.07 Mrd. Farben (10-bit)"
+            },
+            "Bildqualität": {
+                "Farbraum": "Detaillierte Liste (z.B. 120% sRGB, 95% DCI-P3)",
+                "Besonderheiten": "z.B. Flicker-Free, Low Blue Light, AMD FreeSync Premium"
+            },
+            "Konnektivität": {
+                "Schnittstellen": "Liste (z.B. 2x HDMI 2.1, 1x DisplayPort 1.4, 1x USB-C mit 65W PD, Audio Out)"
+            },
+            "Mechanisch": {
+                "Einstellungen der Anzeigeposition": "z.B. Höhe, Neigung, Drehung (Pivot)",
+                "Höheneinstellung": "z.B. 130 mm",
+                "VESA-Halterung": "z.B. 100 x 100 mm",
+                "Neigungswinkel": "z.B. -5/+20"
+            },
+            "Stromversorgung": {
+                "Eingangsspannung": "z.B. Wechselstrom 100-240 V",
+                "Stromverbrauch SDR (eingeschaltet)": "kWh/1000h",
+                "Stromverbrauch HDR (eingeschaltet)": "kWh/1000h"
+            },
+            "Abmessungen und Gewicht": {
+                "Details": "Maße mit/ohne Fuß (z.B. Mit Fuß: 61 x 45 x 20 cm - 5.8 kg)"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer (z.B. 3 Jahre)"
+            }
+        }
+        """    
 
     elif "gehäuse" in cat_lower:
         return base_prompt + """
@@ -972,33 +1059,45 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """  
         
-    elif "desktop_set_wg40" in cat_lower:
+    elif "desktop_set_wg40" in cat_lower or "desktop set" in cat_lower or "tastatur-und-maus" in cat_lower or "combo" in cat_lower:
         return base_prompt + """
         Kategorie: Maus-Tastatur-Set (Desktop Set / Combo)
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Layout: Deutsch (QWERTZ), US (QWERTY) oder anderes?
+        CRITICAL INSTRUCTIONS:
+        1. Layout: Deutsch (QWERTZ) oder anderes?
         2. Verbindung: Wireless (Funk/Bluetooth) oder Kabelgebunden?
-        3. Inhalt: Ist eine Maus dabei?
+        3. Inhalt: Details zu Maus (DPI) UND Tastatur (Switches/Layout) suchen.
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Gerätetyp": "Desktop-Set",
+                "Gerätetyp": "Tastatur-und-Maus-Set",
                 "Modell": "Name",
-                "Farbe": "z.B. Schwarz"
+                "Farbe": "z.B. Pale Gray / Schwarz",
+                "Schnittstelle": "z.B. 2.4 GHz Wireless / Bluetooth"
             },
-            "Technische Daten": {
+            "Tastatur": {
                 "Layout": "z.B. Deutsch (QWERTZ)",
-                "Verbindung": "z.B. Wireless 2.4 GHz / Bluetooth",
-                "Sensor (Maus)": "z.B. Optisch"
+                "Tastenschalter": "z.B. CHERRY SX Schere",
+                "Besonderheiten": "z.B. Nummernblock, Handballenauflage",
+                "Batterie": "z.B. 2x AA"
             },
-            "Ausstattung": {
-                "Besonderheiten": "z.B. Handballenauflage, Unifying Receiver"
+            "Maus": {
+                "Typ": "z.B. Optisch / Laser",
+                "Bewegungsauflösung": "z.B. 2400 dpi (umschaltbar)",
+                "Anzahl Tasten": "Anzahl",
+                "Batterie": "z.B. 1x AA"
+            },
+            "Verschiedenes": {
+                "Zubehör im Lieferumfang": "z.B. Batterien, Nano-Empfänger",
+                "MTBF": "z.B. 80.000 Stunden"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer"
             }
         }
-        """ 
+        """
         
     elif "service" in cat_lower or "garantie" in cat_lower or "warranty" in cat_lower or "dienstleistung" in cat_lower or "care pack" in cat_lower:
         return base_prompt + """
