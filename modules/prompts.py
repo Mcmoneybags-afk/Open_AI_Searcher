@@ -832,33 +832,86 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """
         
-    elif "software" in cat_lower or "windows" in cat_lower or "office" in cat_lower or "antivirus" in cat_lower or "esd" in cat_lower or "microsoft" in cat_lower:
+    elif "netzwerkadapter" in cat_lower or "wlan" in cat_lower or "wifi" in cat_lower or ("adapter" in cat_lower and "netzwerk" in cat_lower):
+        return base_prompt + """
+        Kategorie: Netzwerkadapter (WLAN / Bluetooth)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS:
+        1. Typ: USB-Stick (Extern) oder PCIe-Karte (Intern)?
+        2. WLAN-Standard: Wi-Fi 6 (AX), Wi-Fi 5 (AC) oder Wi-Fi 4 (N)?
+        3. Geschwindigkeit: Max. Datenrate (z.B. 1200 Mbit/s oder 3000 Mbit/s).
+        4. Bluetooth: Version (z.B. 5.0 / 5.2) falls vorhanden.
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "Netzwerkadapter",
+                "Formfaktor": "z.B. Extern (USB-Stick) oder Intern (PCIe-Karte)",
+                "Schnittstellentyp (Bustyp)": "z.B. SuperSpeed USB 3.0 oder PCI Express"
+            },
+            "Netzwerk": {
+                "Anschlusstechnik": "Kabellos",
+                "WLAN-Standard": "z.B. Wi-Fi 6 (802.11ax)",
+                "Datenübertragungsrate": "z.B. 3000 Mbit/s",
+                "Frequenzband": "z.B. 2.4 GHz, 5 GHz",
+                "WLAN-Standards": "Liste (z.B. 802.11a/b/g/n/ac/ax)",
+                "Bluetooth-Version": "z.B. 5.0 (falls vorhanden, sonst leer)"
+            },
+            "Antenne": {
+                "Antenne": "Intern / Extern",
+                "Anzahl der Antennen": "z.B. 2"
+            },
+            "Verschiedenes": {
+                "Verschlüsselungsalgorithmus": "z.B. WPA3, WPA2",
+                "Produktzertifizierungen": "z.B. CE, FCC"
+            },
+            "Systemanforderung": {
+                "Erforderliches Betriebssystem": "Liste"
+            },
+            "Maße und Gewicht": {
+                "Breite": "cm",
+                "Tiefe": "cm",
+                "Höhe": "cm",
+                "Gewicht": "g"
+            }
+        }
+        """    
+        
+    elif "software" in cat_lower or "windows" in cat_lower or "office" in cat_lower or "antivirus" in cat_lower or "esd" in cat_lower or "microsoft" in cat_lower or "adobe" in cat_lower:
         return base_prompt + """
         Kategorie: Software (Betriebssysteme, Office, Antivirus)
         ERSTELLE EIN HIERARCHISCHES JSON.
 
-        WICHTIG:
+        CRITICAL INSTRUCTIONS:
         1. Typ: Betriebssystem, Office-Anwendung oder Sicherheit/Antivirus?
         2. Edition: Home, Pro, Enterprise, Personal, Family?
         3. Sprache: Deutsch, Englisch, Multilingual?
-        4. Lizenz: OEM, Retail, ESD (Download), DSP/SB.
-        
+        4. Lizenz: OEM (Systembuilder), Retail (Box), ESD (Download), DSP/SB.
+        5. Geräteanzahl: 1 PC, 5 Geräte, 1 Benutzer?
+
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Gerätetyp": "Software",
-                "Titel": "Name der Software",
+                "Titel": "Name der Software (z.B. Microsoft Windows 11 Pro)",
                 "Hersteller": "z.B. Microsoft"
+            },
+            "Lizenzierung": {
+                "Lizenztyp": "z.B. OEM (Systembuilder) oder Vollversion (Retail)",
+                "Anzahl Lizenzen": "z.B. 1 PC oder 1 Benutzer / 5 Geräte",
+                "Medium": "z.B. DVD-ROM, Aktivierungskarte (Key only) oder Download (ESD)"
             },
             "Details": {
                 "Kategorie": "z.B. Betriebssystem oder Büroanwendung",
-                "Version/Edition": "z.B. Windows 11 Pro oder Office 2021 Home & Business",
-                "Sprache": "z.B. Deutsch, Multilingual oder Englisch",
-                "Lizenzart": "z.B. OEM, DSP/SB, Retail, ESD"
+                "Version/Edition": "z.B. 64-bit oder Home & Business 2021",
+                "Sprache": "z.B. Deutsch, Multilingual oder Englisch"
             },
             "Systemanforderungen": {
-                "Plattform": "Windows, Mac, Android",
-                "Architektur": "64-Bit / 32-Bit"
+                "Plattform": "Windows, Mac, Android, iOS",
+                "Min. Betriebssystem": "z.B. Windows 10 oder macOS 12",
+                "Min. Arbeitsspeicher": "z.B. 4 GB",
+                "Min. Festplattenspeicher": "z.B. 4 GB"
             }
         }
         """  
@@ -866,31 +919,44 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     elif "wasserkühlung" in cat_lower or "water cooling" in cat_lower or "aio" in cat_lower or "liquid cooler" in cat_lower:
         return base_prompt + """
         Kategorie: Wasserkühlung (AiO / Liquid)
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Radiatorgröße: 120mm, 240mm, 280mm, 360mm, 420mm?
-        2. TDP: Kühlleistung in Watt (z.B. 250W TDP).
-        3. Beleuchtung: RGB (4-Pin), ARGB (3-Pin) oder keine?
-        4. Sockel: AM4, AM5, LGA1700, etc.
+        CRITICAL INSTRUCTIONS:
+        1. Kompatibilität: Suche explizit nach neuen Sockeln (LGA1851, LGA1700, AM5). Das ist Kaufentscheidend!
+        2. Materialien: Unterscheide Kühlerbasis (meist Kupfer) und Radiator (meist Aluminium). Suche auch nach Schlauchmaterial (EPDM).
+        3. Lüfter-Specs: Luftdruck (mmH2O), Luftstrom (CFM) und Lager-Typ (Magnetisch, Rifle, etc.).
+        4. Maße: Radiator-Abmessungen sind wichtiger als die Pumpen-Maße.
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Gerätetyp": "AiO Wasserkühlung",
-                "Modell": "Name"
+                "Produkttyp": "Prozessor-Flüssigkeitskühlsystem",
+                "Produktmaterial": "z.B. Aluminium (Radiator), Kupfer (Basis), EPDM (Schläuche)",
+                "Packungsinhalt": "z.B. Wärmeleitpaste, Montagekit",
+                "Farbe": "z.B. Weiß / Schwarz",
+                "Gewicht": "kg"
             },
-            "Technische Daten": {
-                "Radiatorgröße": "z.B. 360 mm",
-                "TDP-Klasse": "z.B. 300 Watt",
-                "Geräuschpegel": "dBA"
+            "Kühlkörper und Lüfter": {
+                "Kompatibel mit": "Liste der Sockel (z.B. LGA1851, LGA1700, Socket AM5)",
+                "Radiatormaterial": "z.B. Aluminium",
+                "Kühlermaterial": "z.B. Kupfer",
+                "Gebläseanzahl": "z.B. 3",
+                "Lüfterdurchmesser": "z.B. 120 mm",
+                "Lüfterlager": "z.B. Magnetisches Kuppellager oder Rifle Bearing",
+                "Drehgeschwindigkeit": "z.B. 500-2000 U/min",
+                "Luftstrom": "z.B. 94.87 CFM",
+                "Luftdruck": "z.B. 3.91 mm",
+                "Geräuschpegel": "dBA",
+                "Netzanschluss": "z.B. PWM, 4-polig, ARGB",
+                "Merkmale": "z.B. Zero RPM-Lüftermodus, Daisy-Chain, iCUE Support"
             },
-            "Kompatibilität": {
-                "Sockel": "Liste (z.B. AM4, AM5, LGA1700)"
+            "Abmessungen (Radiator)": {
+                 "Breite": "cm (Länge)",
+                 "Tiefe": "cm (Breite)",
+                 "Höhe": "cm (Dicke)"
             },
-            "Beleuchtung & Features": {
-                "Beleuchtung": "ARGB, RGB oder Nein",
-                "Anschluss": "z.B. 3-Pin ARGB"
+            "Herstellergarantie": {
+                "Service und Support": "Dauer (z.B. 5 oder 6 Jahre)"
             }
         }
         """
@@ -949,33 +1015,43 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """  
         
-    elif "tastatur_wg34" in cat_lower:
+    elif "tastatur_wg34" in cat_lower or "tastatur" in cat_lower and "wg34" in cat_lower:
         return base_prompt + """
         Kategorie: Tastatur (Keyboard)
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Layout: Deutsch (QWERTZ), US (QWERTY) oder UK?
-        2. Typ: Mechanisch (welche Switches? Rot/Blau/Braun) oder Rubberdome?
-        3. Verbindung: Kabel (USB), Wireless (2.4GHz), Bluetooth?
-        4. Beleuchtung: RGB, einfarbig oder keine?
+        CRITICAL INSTRUCTIONS:
+        1. Layout: Deutsch (QWERTZ), US (QWERTY) oder UK? Wichtigstes Feld!
+        2. Typ: Mechanisch (welche Switches? Rot/Blau/Braun/Speed) oder Rubberdome/Membran?
+        3. Verbindung: Kabel (Länge?), Wireless (2.4GHz), Bluetooth?
+        4. Beleuchtung: RGB, Einfarbig oder Keine?
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Gerätetyp": "Tastatur",
                 "Modell": "Name",
-                "Farbe": "z.B. Schwarz"
+                "Farbe": "z.B. Schwarz / Weiß",
+                "Lokalisierung und Layout": "z.B. Deutsch (QWERTZ)"
             },
-            "Technische Daten": {
-                "Layout": "z.B. Deutsch (QWERTZ) oder US (QWERTY)",
-                "Tastenschalter": "z.B. Cherry MX Red, Romer-G, Rubberdome",
-                "Verbindung": "z.B. USB-C Kabel, Wireless",
-                "Beleuchtung": "z.B. RGB Einzeltastenbeleuchtung"
+            "Eingabegerät": {
+                "Tastaturtechnologie": "z.B. Mechanisch oder Membran (Rubberdome)",
+                "Tastenschalter": "z.B. Cherry MX Red / Razer Green",
+                "Anschlusstechnik": "z.B. Verkabelt (USB) oder Kabellos",
+                "Besonderheiten": "z.B. Nummernblock, Handballenauflage, Spritzwassergeschützt"
             },
-            "Ausstattung": {
-                "Nummernblock": "Ja / Nein",
-                "Besonderheiten": "z.B. Handballenauflage, Multimedia-Tasten"
+            "Konnektivität": {
+                "Schnittstelle": "z.B. USB 2.0 / USB-C / Bluetooth",
+                "Kabellänge": "z.B. 1.5 m"
+            },
+            "Abmessungen und Gewicht": {
+                "Breite": "cm",
+                "Tiefe": "cm",
+                "Höhe": "cm",
+                "Gewicht": "g"
+            },
+            "Herstellergarantie": {
+                "Service und Support": "Dauer"
             }
         }
         """  
