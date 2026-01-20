@@ -62,18 +62,45 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     
     if forced_category:
         category = forced_category
-        # Kleines visuelles Feedback in der Konsole wäre hier gut, passiert aber in main.py
     else:
         category = classify_product_type(product_name, gtin)
     
     cat_lower = category.lower()
 
-    # Basis-Prompt
+    # --- INTELLIGENTE GTIN-STRATEGIE 🧠 ---
+    has_valid_gtin = False
+    # Check: Ist die GTIN plausibel (länger als 8 Zeichen)?
+    if gtin and len(str(gtin)) > 8 and str(gtin).lower() not in ["n/a", "nan", "none", "", "0"]:
+        has_valid_gtin = True
+
+    if has_valid_gtin:
+        # Happy Path: GTIN vorhanden
+        search_strategy = f"""
+        STRATEGIE:
+        1. Nutze die bereitgestellte GTIN ({gtin}), um präzise Datenblätter zu finden.
+        2. Suche nach "Datenblatt GTIN {gtin}" oder "Specs {gtin}".
+        """
+    else:
+        # Fallback Path: GTIN suchen & SPEICHERN
+        search_strategy = f"""
+        STRATEGIE (KRITISCH - KEINE GTIN VORHANDEN):
+        1. SCHRITT 1: Identifikation! Suche zuerst nach der GTIN/EAN für das Produkt "{product_name}".
+           Suchebegriffe z.B.: "{product_name} EAN", "{product_name} GTIN".
+        2. VERIFIZIERUNG: Vergleiche das gefundene Produkt GENAU mit "{product_name}".
+        3. SCHRITT 2: Nutze die gefundene GTIN für die weitere Suche.
+        4. WICHTIG: Schreibe die gefundene GTIN zwingend in das Feld "Allgemein" -> "EAN" (oder "GTIN_Gefunden"), damit sie gespeichert wird!
+        5. FALLBACK: Wenn absolut keine GTIN auffindbar ist, suche mit dem Namen.
+        """
+    # -------------------------------------------
+
+    # Basis-Prompt (Mit Regel 7 für das Speichern)
     base_prompt = f"""
     Du bist ein technischer Hardware-Experte.
     Produkt: {product_name}
-    GTIN: {gtin}
+    GTIN: {gtin if gtin else "NICHT VORHANDEN - Siehe Strategie"}
     
+    {search_strategy}
+
     Suche nach technischen Datenblättern.
     REGELN:
     1. Unauffindbar -> "N/A".
@@ -82,6 +109,8 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     4. Trenner: "¦".
     5. Format: JSON only.
     6. Max 3-4 Suchen.
+    7. GTIN SICHERN: Wenn du eine GTIN/EAN gefunden hast (oder eine übergeben wurde),
+       füge sie IMMER im Block "Allgemein" als Key "EAN" oder "GTIN" hinzu.
     """
 
     # === Dispatcher ===
