@@ -3,8 +3,6 @@ import json
 from jinja2 import Environment, FileSystemLoader
 from .json_mapper import MarvinMapper
 
-print(f"!!! GELADEN: {__file__} !!!")
-
 class HTMLGenerator:
     def __init__(self, json_folder, output_folder, template_path="templates/template.html"):
         self.json_folder = json_folder
@@ -23,26 +21,54 @@ class HTMLGenerator:
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
 
+    def _escape(self, text):
+        """ Ersetzt Umlaute durch HTML-Entities für exakte Shop-Kompatibilität """
+        if not text: return ""
+        text = str(text)
+        replacements = {
+            "ä": "&auml;", "ö": "&ouml;", "ü": "&uuml;", "ß": "&szlig;",
+            "Ä": "&Auml;", "Ö": "&Ouml;", "Ü": "&Uuml;"
+        }
+        for k, v in replacements.items():
+            text = text.replace(k, v)
+        return text
+
     def _row(self, label, value, is_odd):
-        """ Hilfsfunktion für eine Tabellenzeile """
+        """ Hilfsfunktion für eine Tabellenzeile im exakten ITS-Format """
         if not value or str(value).lower() in ["n/a", "na", "none", ""]:
             return ""
+        
+        # Umlaute ersetzen
+        label_safe = self._escape(label)
+        value_safe = self._escape(value)
+        
+        # Spezial-Formatierung: " GB" durch "&nbsp;GB" ersetzen (wie in deiner Vorlage)
+        value_safe = value_safe.replace(" GB", "&nbsp;GB")
+        
         css_class = "ITSr1" if is_odd else "ITSr0"
-        return f'<div class="{css_class}"><div class="ITSn">{label}</div><div class="ITSv">{value}</div></div>'
+        
+        # Exakte Struktur mit Leerzeilen
+        return f'''
+<div class="{css_class}">
+<div class="ITSn">{label_safe}</div>
+
+<div class="ITSv">{value_safe}</div>
+</div>
+'''
 
     def _generate_ram_html(self, data):
-        """ Spezial-Generator für Arbeitsspeicher (RAM) nach IT-Scope Vorlage """
+        """ Spezial-Generator für Arbeitsspeicher (RAM) """
         html = '<div class="ITSs">\n'
         
         # --- Allgemein ---
         html += '<div class="ITSg">Allgemein</div>\n'
         
-        # Kapazität logik
+        # Kapazität logik: "32 GB + 2 x 16 GB" (Mit Plus statt Doppelpunkt!)
         cap = data.get("Allgemein", {}).get("Kapazität", "")
         conf = data.get("Speicher", {}).get("Modulkonfiguration", "")
         
         if cap and conf and conf not in cap:
-            cap_display = f"{cap}: {conf}" 
+            cap_display = f"{cap} + {conf}" 
         else:
             cap_display = cap or conf
             
@@ -60,7 +86,7 @@ class HTMLGenerator:
         if h: html += self._row("Höhe", h, odd); odd = not odd
 
         # --- Arbeitsspeicher ---
-        html += '<div class="ITSg">Arbeitsspeicher</div>\n' # Diese Zeile ist kritisch!
+        html += '\n<div class="ITSg">Arbeitsspeicher</div>\n'
         mem = data.get("Speicher", {})
         
         odd = True
@@ -88,7 +114,7 @@ class HTMLGenerator:
         html += self._row("Metallüberzug", "Gold", odd); odd = not odd
         
         # --- Verschiedenes ---
-        html += '<div class="ITSg">Verschiedenes</div>\n'
+        html += '\n<div class="ITSg">Verschiedenes</div>\n'
         misc = data.get("Verschiedenes", {})
         
         odd = True
@@ -96,29 +122,29 @@ class HTMLGenerator:
         html += self._row("Kennzeichnung", misc.get("Produktzertifizierungen", "JEDEC"), odd); odd = not odd
 
         # --- Garantie ---
-        html += '<div class="ITSg">Herstellergarantie</div>\n'
+        html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+        
+        # Hier wird "Gewährleistungsvorschriften" automatisch zu "Gew&auml;hrleistungsvorschriften"
         html += self._row("Service und Support", data.get("Herstellergarantie", {}).get("Service und Support", ""), True)
 
         html += '</div>'
         return html
 
     def generate_generic_html(self, data):
-        """ Der Standard-Generator für alle anderen Kategorien (Mainboard, CPU etc.) """
+        """ Der Standard-Generator für alle anderen Kategorien """
         html = '<div class="ITSs">\n'
         
         has_groups = any(isinstance(v, dict) for v in data.values())
         if not has_groups: data = {"Allgemein": data}
 
         for group_name, fields in data.items():
-            # Metadaten überspringen
             if group_name.startswith("_"): continue
             
             if isinstance(fields, dict):
-                html += f'    <div class="ITSg">{group_name}</div>\n'
+                html += f'\n<div class="ITSg">{self._escape(group_name)}</div>\n'
                 row_idx = 1
                 for key, value in fields.items():
                     if key.startswith("_"): continue
-                    # Odd/Even Logik
                     odd = (row_idx == 1)
                     html += self._row(key, value, odd)
                     row_idx = 1 - row_idx
@@ -146,6 +172,7 @@ class HTMLGenerator:
         
         product_name = data.get("Produktname", data.get("_Produktname", "Datenblatt"))
         
+        # Wir übergeben das HTML an das (jetzt leere) Template
         output = self.template.render(
             product_name=product_name,
             tech_specs=technical_block,
