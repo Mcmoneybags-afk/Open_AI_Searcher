@@ -334,85 +334,94 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         Kategorie: Mainboard (Motherboard)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        CRITICAL INSTRUCTIONS:
-        1. RAM: Unterscheide strikt zwischen DDR4 und DDR5. Nenne Max. Größe und Taktraten.
-        2. LAN/WLAN: Suche nach "2.5 Gigabit" oder "10 Gigabit". Wenn Wi-Fi dabei ist, nenne den Standard (z.B. Wi-Fi 6E).
-        3. Schnittstellen: Trenne strikt zwischen "Schnittstellen" (hinten am Panel) und "Interne Schnittstellen" (Header auf dem Board).
-        4. M.2: Zähle die Slots genau (z.B. 2x M.2 oder 3x M.2).
+        CRITICAL INSTRUCTIONS (ANTI-HALLUCINATION & PRECISION):
+        1. High-Speed I/O: SUCHE AKTIV NACH "USB4", "Thunderbolt", "40Gbps". Das sind Key-Features bei neuen Boards (z.B. X870)! Übersehe sie nicht!
+        2. Grafikausgänge: Unterscheide strikt zwischen VGA (D-Sub, analog, blau) und DVI-D (digital, weiß). Rate nicht!
+        3. USB Backpanel: Zähle exakt jeden Port-Typ. Unterscheide USB 2.0 (schwarz), USB 3.2 Gen 1 (blau), Gen 2 (rot), Gen 2x2.
+        4. PCIe Slots: Zähle exakt! Wie viele x16 (lang) und wie viele x1 (kurz)?
+        5. RAM: DDR4 oder DDR5? (Kritisch!)
 
-        Benötigte JSON-Struktur (orientiert an IT-Scope):
+        Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Produkttyp": "z.B. Motherboard - ATX",
-                "Chipsatz": "z.B. Intel Z790 oder AMD B650",
-                "Prozessorsockel": "z.B. LGA1700-Sockel oder Socket AM5",
-                "Kompatible Prozessoren": "z.B. Unterstützt 12./13./14. Gen Intel Core",
+                "Chipsatz": "z.B. Intel Z790 oder AMD X870",
+                "Prozessorsockel": "z.B. LGA1700 oder Socket AM5",
+                "Kompatible Prozessoren": "z.B. Unterstützt AMD Ryzen 9000 Series",
                 "Max. Anz. Prozessoren": "1"
             },
             "Unterstützter RAM": {
-                "Max. Größe": "z.B. 128 GB",
+                "Max. Größe": "z.B. 192 GB",
                 "Technologie": "z.B. DDR5",
-                "Bustakt": "Liste der Taktraten (z.B. 6000 MHz (O.C.), 5600 MHz, 4800 MHz)",
-                "Besonderheiten": "z.B. Dual Channel, XMP, EXPO",
+                "Bustakt": "Liste der Taktraten (z.B. 8000+(OC), 6000 MHz)",
+                "Besonderheiten": "z.B. Dual Channel, EXPO, XMP",
                 "Registriert oder gepuffert": "Ungepuffert"
             },
             "Audio": {
                 "Typ": "z.B. HD Audio (8-Kanal)",
-                "Audio Codec": "z.B. Realtek ALC1220"
+                "Audio Codec": "z.B. Realtek ALC4080"
             },
             "LAN": {
-                "Netzwerkschnittstellen": "z.B. 2.5 Gigabit Ethernet, Wi-Fi 6E, Bluetooth 5.3"
+                "Netzwerkschnittstellen": "z.B. 2.5 Gigabit Ethernet, Wi-Fi 7, Bluetooth 5.4"
             },
             "Erweiterung/Konnektivität": {
-                "Erweiterungssteckplätze": "Liste (z.B. 1x PCIe 5.0 x16, 2x PCIe 3.0 x1)",
-                "Speicherschnittstellen": "Liste (z.B. 4x SATA-600, 3x M.2)",
-                "Schnittstellen": "Hinten (z.B. 1x HDMI, 1x USB-C 3.2 Gen 2x2, 4x USB 3.2 Gen 1, Audio)",
-                "Interne Schnittstellen": "Innen (z.B. 1x USB-C Header, 2x USB 2.0 Header, 1x Thunderbolt Header)",
+                "Erweiterungssteckplätze": "Liste (z.B. 1x PCIe 5.0 x16, 2x PCIe 4.0 x16)",
+                "Speicherschnittstellen": "Liste (z.B. 4x SATA-600, 4x M.2)",
+                "Schnittstellen (Rückseite)": "EXAKTE LISTE (z.B. 2x USB4 (40Gbps), 1x HDMI, 4x USB 3.2 Gen 2, 4x USB 2.0)",
+                "Interne Schnittstellen": "Innen (z.B. 1x USB-C Header, 2x USB 2.0 Header)",
                 "Stromanschlüsse": "z.B. 1x 24-Pin ATX, 2x 8-Pin 12V"
             },
             "Besonderheiten": {
                 "BIOS-Typ": "z.B. AMI UEFI",
-                "Hardwarefeatures": "Liste der Marketing-Features (z.B. Q-Latch, Digi+ VRM, Aura Sync, M.2 Thermal Guard)"
+                "Hardwarefeatures": "Liste (z.B. Q-Release, M.2 Thermal Guard, AEMP)"
             },
             "Verschiedenes": {
-                "Zubehör im Lieferumfang": "z.B. WLAN-Antenne, SATA-Kabel, Schrauben",
+                "Zubehör im Lieferumfang": "z.B. Wi-Fi Antenne, SATA-Kabel",
                 "Breite": "cm",
                 "Tiefe": "cm"
             }
         }
         """
 
-    elif "arbeitsspeicher" in cat_lower or "ram" in cat_lower:
+    if "arbeitsspeicher" in cat_lower or "ram" in cat_lower or "memory" in cat_lower:
         return base_prompt + """
         Kategorie: Arbeitsspeicher (RAM)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
-        
-        Suche nach ALLEN technischen Details. Besonders wichtig sind Spannung, Formfaktor und SPD/XMP Details.
+
+        CRITICAL INSTRUCTIONS (PRECISION):
+        1. Technologie: DDR4 oder DDR5? (Absolut kritisch!)
+        2. Geschwindigkeit: MHz oder MT/s (z.B. 3200 MHz, 6000 MT/s). Suche auch nach PC-Klassifizierung (z.B. PC4-25600).
+        3. Konfiguration: Kit oder Einzelmodul? (z.B. "2 x 16 GB" oder "1 x 32 GB"). Suche nach Begriffen wie "Kit of 2", "Dual Channel Kit".
+        4. Latenz: CAS Latency (CL). Suche nach Werten wie "CL16", "CL30", "C36" oder Timings wie "30-38-38".
+        5. Profile: XMP (Intel) oder EXPO (AMD)? Oder beides?
+        6. Spannung: Suche nach der Volt-Zahl (z.B. 1.35 V, 1.1 V).
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Kapazität": "z.B. 32 GB (2 x 16 GB)",
-                "Erweiterungstyp": "z.B. Generisch",
-                "Breite": "mm (falls verfügbar)",
-                "Tiefe": "mm (falls verfügbar)",
-                "Höhe": "mm (falls verfügbar)"
+                "Kapazität": "z.B. 32 GB",
+                "Erweiterungstyp": "Generisch / System-Spezifisch",
+                "Breite": "N/A",
+                "Tiefe": "N/A",
+                "Höhe": "N/A"
             },
-            "Arbeitsspeicher": {
-                "Typ": "z.B. DRAM Speicher-Kit",
-                "Technologie": "z.B. DDR5 SDRAM",
-                "Formfaktor": "z.B. DIMM 288-PIN oder SO-DIMM 262-PIN",
+            "Speicher": {
+                "Typ": "DRAM",
+                "Technologie": "z.B. DDR4 SDRAM oder DDR5 SDRAM",
+                "Formfaktor": "z.B. DIMM 288-PIN oder SO-DIMM 262-PIN (Laptop)",
                 "Geschwindigkeit": "z.B. 6000 MHz (PC5-48000)",
-                "Latenzzeiten": "z.B. CL36 (36-38-38-76)",
-                "Besonderheiten": "z.B. Intel Extreme Memory Profiles (XMP 3.0), AMD EXPO, Heatspreader",
-                "Spannung": "z.B. 1.35 V",
-                "RAM-Leistung": "z.B. SPD - 4800 MHz - 1.1 V / Tested - 6000 MHz - 1.35 V (Details zu Profilen)"
+                "Latenzzeiten": "z.B. CL30 (30-38-38-96)",
+                "Datenintegritätsprüfung": "z.B. Non-ECC oder ECC (On-Die)",
+                "Besonderheiten": "z.B. Intel XMP 3.0, AMD EXPO, RGB-Beleuchtung, Aluminium-Heatspreader",
+                "Modulkonfiguration": "z.B. 2 x 16 GB",
+                "Spannung": "z.B. 1.35 V"
             },
             "Verschiedenes": {
-                "Farbkategorie": "z.B. Schwarz, Weiß, RGB"
+                "Farbe": "z.B. Schwarz / Weiß",
+                "Produktzertifizierungen": "z.B. RoHS"
             },
-            "Herstellergarantie": {
-                "Service und Support": "z.B. Begrenzte lebenslange Garantie"
+             "Herstellergarantie": {
+                "Service und Support": "Dauer (z.B. Begrenzte lebenslange Garantie)"
             }
         }
         """
