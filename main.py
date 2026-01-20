@@ -13,6 +13,8 @@ from modules.html_generator import HTMLGenerator
 from modules.image_fetcher import find_product_image
 from modules.json_mapper import MarvinMapper
 
+print("🚀 ICH BIN DAS NEUE SKRIPT!")
+
 # --- LOGGING CONFIG ---
 if os.path.exists(LOG_FILE):
     try: os.remove(LOG_FILE)
