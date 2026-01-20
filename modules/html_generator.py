@@ -3,6 +3,8 @@ import json
 from jinja2 import Environment, FileSystemLoader
 from .json_mapper import MarvinMapper
 
+print(f"!!! GELADEN: {__file__} !!!")
+
 class HTMLGenerator:
     def __init__(self, json_folder, output_folder, template_path="templates/template.html"):
         self.json_folder = json_folder
@@ -35,11 +37,10 @@ class HTMLGenerator:
         # --- Allgemein ---
         html += '<div class="ITSg">Allgemein</div>\n'
         
-        # Kapazität logik: "64 GB: 2 x 32 GB"
+        # Kapazität logik
         cap = data.get("Allgemein", {}).get("Kapazität", "")
         conf = data.get("Speicher", {}).get("Modulkonfiguration", "")
         
-        # Kombinieren, wenn Konfiguration nicht schon im String steckt
         if cap and conf and conf not in cap:
             cap_display = f"{cap}: {conf}" 
         else:
@@ -58,8 +59,8 @@ class HTMLGenerator:
         if d: html += self._row("Tiefe", d, odd); odd = not odd
         if h: html += self._row("Höhe", h, odd); odd = not odd
 
-        # --- Arbeitsspeicher (WICHTIG: Umbenannt von "Speicher") ---
-        html += '<div class="ITSg">Arbeitsspeicher</div>\n'
+        # --- Arbeitsspeicher ---
+        html += '<div class="ITSg">Arbeitsspeicher</div>\n' # Diese Zeile ist kritisch!
         mem = data.get("Speicher", {})
         
         odd = True
@@ -67,7 +68,7 @@ class HTMLGenerator:
         html += self._row("Technologie", mem.get("Technologie", ""), odd); odd = not odd
         html += self._row("Formfaktor", mem.get("Formfaktor", ""), odd); odd = not odd
         
-        # Versuch Höhe in Zoll umzurechnen oder anzuzeigen
+        # Versuch Höhe in Zoll
         if h and "mm" in h:
             try:
                 h_val = float(h.replace("mm", "").strip())
@@ -81,16 +82,11 @@ class HTMLGenerator:
         html += self._row("Besonderheiten", mem.get("Besonderheiten", ""), odd); odd = not odd
         html += self._row("Modulkonfiguration", mem.get("Modulkonfiguration", ""), odd); odd = not odd
         
-        # Fehlende Felder auffüllen (Standardwerte oder leer)
-        html += self._row("Chip-Organisation", "X8", odd); odd = not odd # Oft Standard
+        # Fehlende Felder
+        html += self._row("Chip-Organisation", "X8", odd); odd = not odd
         html += self._row("Spannung", mem.get("Spannung", ""), odd); odd = not odd
         html += self._row("Metallüberzug", "Gold", odd); odd = not odd
         
-        # RAM-Leistung (Fallback auf Geschwindigkeit, wenn keine Details da sind)
-        ram_perf = data.get("Unterstützter RAM", {}).get("Bustakt", "")
-        if not ram_perf: ram_perf = mem.get("Geschwindigkeit", "")
-        # html += self._row("RAM-Leistung", ram_perf, odd); odd = not odd
-
         # --- Verschiedenes ---
         html += '<div class="ITSg">Verschiedenes</div>\n'
         misc = data.get("Verschiedenes", {})
@@ -140,8 +136,6 @@ class HTMLGenerator:
         is_ram = False
         if "Speicher" in data:
             speicher_data = data.get("Speicher", {})
-            # RAM hat immer einen Formfaktor (DIMM/SO-DIMM), CPUs nicht.
-            # Wir prüfen nur auf ASCII-Keys, um Encoding-Probleme zu vermeiden.
             if "Formfaktor" in speicher_data:
                 is_ram = True
         
