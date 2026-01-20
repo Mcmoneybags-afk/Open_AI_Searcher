@@ -132,11 +132,10 @@ class HTMLGenerator:
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # --- INTELLIGENTE WEICHE (ASCII-SAFE FINAL) 🛡️ ---
+        # --- INTELLIGENTE WEICHE (ASCII-SAFE) 🛡️ ---
         is_ram = False
         if "Speicher" in data:
-            speicher_data = data.get("Speicher", {})
-            if "Formfaktor" in speicher_data:
+            if "Formfaktor" in data.get("Speicher", {}):
                 is_ram = True
         
         if is_ram:
