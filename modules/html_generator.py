@@ -138,7 +138,11 @@ class HTMLGenerator:
 
         # --- INTELLIGENTE WEICHE (Der Magic Trick) 🎩 ---
         # Prüft, ob es RAM ist (Key "Speicher" + "Kapazität" vorhanden)
-        if "Speicher" in data and "Allgemein" in data and "Kapazität" in data.get("Allgemein", {}):
+        has_speicher = "Speicher" in data
+        has_formfaktor = "Formfaktor" in data.get("Speicher", {})
+        
+        if has_speicher and has_formfaktor:
+            print(f"   Detected RAM for {json_file}") # Debug Ausgabe
             technical_block = self._generate_ram_html(data)
         else:
             technical_block = self.generate_generic_html(data)
