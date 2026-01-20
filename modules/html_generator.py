@@ -136,13 +136,19 @@ class HTMLGenerator:
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # --- INTELLIGENTE WEICHE (Der Magic Trick) 🎩 ---
-        # Prüft, ob es RAM ist (Key "Speicher" + "Kapazität" vorhanden)
-        has_speicher = "Speicher" in data
-        has_formfaktor = "Formfaktor" in data.get("Speicher", {})
+        # --- INTELLIGENTE WEICHE (ASCII-SAFE FIX) 🛡️ ---
+        # Wir prüfen nicht mehr auf "Kapazität" (wegen Umlaut-Gefahr!), 
+        # sondern auf "Formfaktor" im Speicher-Block. Das gibt es nur bei RAM.
         
-        if has_speicher and has_formfaktor:
-            print(f"   Detected RAM for {json_file}") # Debug Ausgabe
+        is_ram = False
+        if "Speicher" in data:
+            speicher_data = data.get("Speicher", {})
+            # RAM hat immer einen Formfaktor (DIMM/SO-DIMM), CPUs nicht.
+            if "Formfaktor" in speicher_data:
+                is_ram = True
+        
+        if is_ram:
+            print(f"   ℹ️ RAM-Layout erkannt für: {json_file}")
             technical_block = self._generate_ram_html(data)
         else:
             technical_block = self.generate_generic_html(data)
