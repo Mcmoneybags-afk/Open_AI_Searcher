@@ -8,35 +8,37 @@ def load_csv_optimized():
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Die Datei {file_path} wurde nicht gefunden.")
 
-    # --- UPDATE: EXCEL SUPPORT (.xlsx / .xls) 📊 ---
-    # Falls du die Datei sicherheitshalber als Excel gespeichert hast:
+    print(f"   📂 Lade Datei: {INPUT_FILE} ...")
+
+    # --- 1. STRATEGIE: EXCEL (.xlsx / .xls) 📊 ---
+    # Das ist der sicherste Weg gegen das "E+12"-Problem!
     if file_path.lower().endswith(('.xlsx', '.xls')):
         try:
-            print(f"   📊 Lade Excel-Datei: {INPUT_FILE} ...")
-            # dtype=str ist hier der Trick: Es zwingt Python, alles als Text zu lesen!
+            # dtype=str ist der Trick: Wir zwingen Python, ALLES als Text zu lesen.
+            # Dadurch wird "4711..." nicht zu einer Zahl umgewandelt.
             df = pd.read_excel(file_path, dtype=str)
             
-            # Spalten bereinigen
+            # Spalten bereinigen (Leerzeichen/Anführungszeichen weg)
             df.columns = [str(c).strip().replace('"', '') for c in df.columns]
             df = df.dropna(how='all')
             
-            # GTIN Clean Logic
+            # GTIN Spalten harmonisieren
             if 'GTIN' in df.columns and 'GTIN_Clean' not in df.columns:
                 df['GTIN_Clean'] = df['GTIN'].fillna('')
             elif 'GTIN_Clean' not in df.columns:
                 df['GTIN_Clean'] = ''
             
-            print(f"   ✅ Excel erfolgreich geladen! ({len(df)} Zeilen)")
+            print(f"   ✅ Excel-Datei erfolgreich geladen! ({len(df)} Zeilen)")
             return df
         except Exception as e:
             print(f"   ❌ Fehler beim Laden der Excel-Datei: {e}")
-            # Falls es scheitert, machen wir unten weiter (unwahrscheinlich, aber sicher ist sicher)
+            raise ValueError("Konnte Excel-Datei nicht lesen. Sind 'openpyxl' und 'pandas' installiert?")
 
-    # --- CSV / TEXT LOADER (Robust gegen Formate) ---
+    # --- 2. STRATEGIE: CSV / TEXT (Robust gegen Formate) ---
     attempts = [
         {"encoding": "utf-8", "sep": ";"},
         {"encoding": "utf-8", "sep": ","},
-        {"encoding": "utf-8", "sep": "\t"},  # Tab-getrennt (deine Idee!)
+        {"encoding": "utf-8", "sep": "\t"},  # Tab-getrennt (Deine Idee!)
         {"encoding": "latin1", "sep": ";"},   
         {"encoding": "latin1", "sep": ","},
         {"encoding": "latin1", "sep": "\t"},
@@ -49,14 +51,14 @@ def load_csv_optimized():
         sep = attempt["sep"]
         
         try:
-            # dtype=str verhindert, dass "4711..." wissenschaftlich verformt wird
+            # Auch hier: dtype=str verhindert wissenschaftliche Notation beim Einlesen
             df = pd.read_csv(file_path, sep=sep, encoding=enc, dtype=str)
             
             # Spalten bereinigen
             df.columns = [c.strip().replace('"', '') for c in df.columns]
 
-            if 'Artikelname' in df.columns:
-                print(f"✅ Erfolg! CSV/TXT geladen mit Encoding='{enc}' und Trenner='{repr(sep)}'")
+            if 'Artikelname' in df.columns or 'Artikelnummer' in df.columns:
+                print(f"   ✅ CSV/TXT geladen mit Encoding='{enc}' und Trenner='{repr(sep)}'")
                 
                 df = df.dropna(how='all')
                 

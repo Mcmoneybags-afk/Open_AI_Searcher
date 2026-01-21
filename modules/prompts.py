@@ -93,7 +93,7 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         """
     # -------------------------------------------
 
-    # Basis-Prompt (Mit Regel 7 für das Speichern)
+    # Basis-Prompt (Mit verschärfter Regel 7)
     base_prompt = f"""
     Du bist ein technischer Hardware-Experte.
     Produkt: {product_name}
@@ -109,8 +109,10 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     4. Trenner: "¦".
     5. Format: JSON only.
     6. Max 3-4 Suchen.
-    7. GTIN SICHERN: Wenn du eine GTIN/EAN gefunden hast (oder eine übergeben wurde),
-       füge sie IMMER im Block "Allgemein" als Key "EAN" oder "GTIN" hinzu.
+    7. GTIN INTEGRATION: Wenn du eine GTIN/EAN hast, füge sie in das BEREITS BESTEHENDE "Allgemein"-Objekt ein. 
+       ERSTELLE KEINEN ZWEITEN "Allgemein"-BLOCK! Das zerstört das JSON.
+       Falsch: {{ "Allgemein": {{...}}, "Allgemein": {{ "GTIN": ... }} }}
+       Richtig: {{ "Allgemein": {{ "GTIN": ..., "Farbe": ... }} }}
     """
 
     # === Dispatcher ===
