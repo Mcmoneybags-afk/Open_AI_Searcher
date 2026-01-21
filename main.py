@@ -71,31 +71,37 @@ FOLDER_MAPPING = {
     "40_Maus_Tastatur_Set": "Desktop_Set_WG40",
     "41_Service": "Service",
     "42_USB_Sticks": "USB-Stick",
-    
-    
 }
 
-def read_csv_robust(filepath):
+def read_file_robust(filepath):
     """
-    Versucht verschiedene Encodings (UTF-8, Latin-1) und filtert leere Zeilen.
+    Liest CSV ODER Excel Dateien robust ein.
     """
+    # --- 1. EXCEL CHECK (.xlsx / .xls) ---
+    if filepath.lower().endswith(('.xlsx', '.xls')):
+        try:
+            # dtype=str ist WICHTIG gegen das "E+12" Problem!
+            df = pd.read_excel(filepath, dtype=str)
+            # Spalten bereinigen
+            df.columns = [str(c).strip().replace('"', '') for c in df.columns]
+            df.dropna(how='all', inplace=True)
+            return df
+        except Exception as e:
+            logging.error(f"❌ Fehler beim Lesen der Excel-Datei: {e}")
+            return None
+
+    # --- 2. CSV CHECK ---
     encodings = ['utf-8', 'latin-1', 'cp1252']
-    
     for enc in encodings:
         try:
-            # dtype=str sorgt dafür, dass "00123" nicht zu 123 wird
             df = pd.read_csv(filepath, sep=None, engine='python', dtype=str, encoding=enc).fillna('')
             
-            # 🧹 CLEANING: Leere Zeilen entfernen
-            # Wir prüfen, ob 'Artikelname' oder 'Artikelnummer' existiert und nicht leer ist
             if 'Artikelname' in df.columns:
                 df = df[df['Artikelname'].str.strip() != '']
             elif 'Artikelnummer' in df.columns:
                 df = df[df['Artikelnummer'].str.strip() != '']
             
-            # Alle Zeilen, wo ALLES leer ist, entfernen
             df.dropna(how='all', inplace=True)
-            
             return df
         except UnicodeDecodeError:
             continue
@@ -142,7 +148,6 @@ def process_dataframe(df, agent, forced_category=None, stop_event=None):
             break
 
         name = row.get('Artikelname', 'Unbekannt')
-        # Skip wenn Name leer ist (Sicherheitsnetz)
         if not name or str(name).strip() == "":
             continue
 
@@ -156,7 +161,6 @@ def process_dataframe(df, agent, forced_category=None, stop_event=None):
             safe_filename = re.sub(r'[\\/*?:"<>|]', "", str(name)).replace(" ", "_")[:80]
             log_prefix = f"({index + 1}/{total_items}) {name[:20]}..."
 
-        # Leere Filenames verhindern
         if not safe_filename:
             continue
 
@@ -219,16 +223,20 @@ def main(stop_event=None):
     setup_folders()
     agent = setup_agent()
     
-    logging.info("🚀 Starte 'Folder-Mode' Verarbeitung...")
+    logging.info("🚀 Starte 'Folder-Mode' Verarbeitung (Jetzt mit Excel-Support!)...")
     
+    # Hilfsfunktion um zu prüfen ob es eine relevante Datei ist
+    def is_data_file(f):
+        return f.lower().endswith((".csv", ".xlsx", ".xls"))
+
     # 1. Scanne ROOT (Unsortiert)
     if os.path.exists(INPUT_FOLDER):
-        root_files = [f for f in os.listdir(INPUT_FOLDER) if f.endswith(".csv") and os.path.isfile(os.path.join(INPUT_FOLDER, f))]
+        root_files = [f for f in os.listdir(INPUT_FOLDER) if is_data_file(f) and os.path.isfile(os.path.join(INPUT_FOLDER, f))]
         
-        for csv_file in root_files:
-            csv_path = os.path.join(INPUT_FOLDER, csv_file)
-            logging.info(f"\n📂 Lade unsortierte Datei: {csv_file}")
-            df = read_csv_robust(csv_path)
+        for file_name in root_files:
+            file_path = os.path.join(INPUT_FOLDER, file_name)
+            logging.info(f"\n📂 Lade unsortierte Datei: {file_name}")
+            df = read_file_robust(file_path)
             if df is not None:
                 status = process_dataframe(df, agent, forced_category=None, stop_event=stop_event)
                 if status == "STOP": return
@@ -238,20 +246,17 @@ def main(stop_event=None):
         
         for subdir in subdirs:
             forced_cat = FOLDER_MAPPING.get(subdir)
-            
-            if not forced_cat:
-                # Optional: Warnung auskommentieren, wenn dich andere Ordner nerven
-                # logging.warning(f"⚠️  Ordner '{subdir}' nicht im Mapping erkannt.")
-                continue
+            if not forced_cat: continue
                 
             subdir_path = os.path.join(INPUT_FOLDER, subdir)
-            csv_files = [f for f in os.listdir(subdir_path) if f.endswith(".csv")]
+            # HIER WAR DER FEHLER: Wir suchen jetzt auch nach .xlsx und .xls!
+            data_files = [f for f in os.listdir(subdir_path) if is_data_file(f)]
             
-            for csv_file in csv_files:
-                csv_path = os.path.join(subdir_path, csv_file)
-                logging.info(f"\n📂 Lade Kategorie-Datei ({forced_cat}): {subdir}/{csv_file}")
+            for file_name in data_files:
+                file_path = os.path.join(subdir_path, file_name)
+                logging.info(f"\n📂 Lade Kategorie-Datei ({forced_cat}): {subdir}/{file_name}")
                 
-                df = read_csv_robust(csv_path)
+                df = read_file_robust(file_path)
                 if df is not None:
                     status = process_dataframe(df, agent, forced_category=forced_cat, stop_event=stop_event)
                     if status == "STOP": return
