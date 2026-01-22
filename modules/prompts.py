@@ -93,7 +93,7 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         """
     # -------------------------------------------
 
-    # Basis-Prompt (Mit verschärfter Regel 7)
+    # Basis-Prompt (FIX für Output Parser)
     base_prompt = f"""
     Du bist ein technischer Hardware-Experte.
     Produkt: {product_name}
@@ -107,12 +107,15 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     2. Rate nicht.
     3. Einheiten PFLICHT (3.5 GHz).
     4. Trenner: "¦".
-    5. Format: JSON only.
+    5. FORMAT: Beende deine Antwort IMMER mit dem Satz: "Final Answer:" gefolgt von dem JSON-Codeblock.
+       Beispiel:
+       Final Answer:
+       ```json
+       {{ ... }}
+       ```
     6. Max 3-4 Suchen.
     7. GTIN INTEGRATION: Wenn du eine GTIN/EAN hast, füge sie in das BEREITS BESTEHENDE "Allgemein"-Objekt ein. 
-       ERSTELLE KEINEN ZWEITEN "Allgemein"-BLOCK! Das zerstört das JSON.
-       Falsch: {{ "Allgemein": {{...}}, "Allgemein": {{ "GTIN": ... }} }}
-       Richtig: {{ "Allgemein": {{ "GTIN": ..., "Farbe": ... }} }}
+       ERSTELLE KEINEN ZWEITEN "Allgemein"-BLOCK!
     """
 
     # === Dispatcher ===
@@ -261,9 +264,11 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         CRITICAL INSTRUCTIONS:
         1. Kerne/Takt (Intel Hybrid): Unterscheide ZWINGEND zwischen P-Cores (Performance) und E-Cores (Efficiency) bei Takt und Anzahl.
            Format: "2 GHz (P-Kern) / 1.5 GHz (E-Kern)".
-        2. Verpackung: "Box" (Retail, oft mit Kühler) vs. "OEM/Tray" (Nur CPU).
+        2. Verpackung: "Box" (Retail, oft mit Kühler) vs. "OEM/Tray" (Nur CPU). Suche nach "WOF" (Without Fan) oder "MPK".
         3. Cache: Nenne L2 und L3 Cache separat oder als "Cache-Speicher-Details".
-        4. Grafik: Prüfe auf integrierte Grafik (iGPU). (Achtung: Intel 'F'-Modelle haben KEINE Grafik!).
+        4. Grafik: Prüfe auf integrierte Grafik (iGPU). 
+           - Intel 'F'-Modelle (z.B. 14900F) haben KEINE Grafik! -> "Eingebaute Grafikadapter": "Nein".
+           - Ryzen 7000/9000 haben oft eine "Radeon Graphics" iGPU (klein).
 
         Benötigte JSON-Struktur:
         {
@@ -276,6 +281,7 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Box": "Ja / Nein (oder Verpackung: Tray)"
             },
             "Prozessor": {
+                "Typ / Formfaktor": "Voller Name",
                 "Anz. der Kerne": "Gesamt + Split (z.B. 24 Kerne (8P + 16E))",
                 "Anz. der Threads": "Anzahl",
                 "Taktfrequenz": "Basis (z.B. 2 GHz (P-Kern) / 1.5 GHz (E-Kern))",
@@ -284,7 +290,9 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Cache-Speicher-Details": "Details (z.B. Smart Cache - 36 MB ¦ L2 - 32 MB)",
                 "Thermal Design Power (TDP)": "Basis-Watt (z.B. 65 W)",
                 "Maximale Turbo-Leistung": "Max-Watt (z.B. 219 W)",
-                "Herstellungsprozess": "z.B. 10 nm oder 5 nm"
+                "Herstellungsprozess": "z.B. 10 nm oder 5 nm",
+                "PCI Express Revision": "z.B. 4.0/5.0",
+                "Anz. PCI Express Lanes": "Anzahl"
             },
             "Grafik": {
                 "Eingebaute Grafikadapter": "Ja / Nein",
@@ -294,13 +302,9 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
             },
             "Speicher": {
                 "Maximaler interner Speicher, vom Prozessor unterstützt": "z.B. 128 GB",
-                "Speichertaktraten, vom Prozessor unterstützt": "z.B. 5200 MHz",
+                "Speichertaktraten, vom Prozessor unterstützt": "z.B. DDR5-5600",
                 "Speicherkanäle": "z.B. Dual-channel",
                 "ECC": "Ja / Nein"
-            },
-            "E-/A-Konfiguration": {
-                "PCI Express Revision": "z.B. 4.0/5.0",
-                "Anz. PCI Express Lanes": "Anzahl"
             },
             "Architektur-Merkmale": {
                 "Besonderheiten": "Liste (z.B. Hyper-Threading, DL Boost, AVX2, EXPO, Intel Thread Director)"
@@ -308,6 +312,10 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
             "Verschiedenes": {
                 "Verpackung": "z.B. OEM/Tray oder Box",
                 "Zubehör im Lieferumfang": "z.B. Kühler (nur wenn Box)"
+            },
+            "Abmessungen & Gewicht (Transport)": {
+                "Transportbreite": "cm",
+                "Transporttiefe": "cm"
             }
         }
         """
@@ -361,22 +369,34 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         """
 
     elif "mainboard" in cat_lower or "motherboard" in cat_lower:
-        return base_prompt + """
+        mb_strategy = """
+        STRATEGIE:
+        1. Suche ZUERST nach der GTIN + "specs" (Findet Shops).
+        2. Wenn Details fehlen, suche nach: "Official site [Produktname] specifications" (Findet Herstellerseite).
+        3. Suche nach "[Produktname] manual pdf" (Findet exakte Header-Belegungen).
+        """
+        
+        return base_prompt.replace(search_strategy, mb_strategy) + """
         Kategorie: Mainboard (Motherboard)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS (ANTI-HALLUCINATION & PRECISION):
-        1. High-Speed I/O: SUCHE AKTIV NACH "USB4", "Thunderbolt", "40Gbps". Das sind Key-Features bei neuen Boards (z.B. X870)! Übersehe sie nicht!
-        2. Grafikausgänge: Unterscheide strikt zwischen VGA (D-Sub, analog, blau) und DVI-D (digital, weiß). Rate nicht!
-        3. USB Backpanel: Zähle exakt jeden Port-Typ. Unterscheide USB 2.0 (schwarz), USB 3.2 Gen 1 (blau), Gen 2 (rot), Gen 2x2.
-        4. PCIe Slots: Zähle exakt! Wie viele x16 (lang) und wie viele x1 (kurz)?
-        5. RAM: DDR4 oder DDR5? (Kritisch!)
+        1. SCHNITTSTELLEN-TRENNUNG (WICHTIG!): 
+           - "Schnittstellen (Rückseite)" sind NUR die Ports am I/O-Panel hinten (HDMI, DP, USB-A/C hinten).
+           - "Interne Schnittstellen" sind NUR die Pfostenstecker/Header AUF dem Board (für Front-USB, Lüfter).
+           - VERMISCHE DIESE NIEMALS! Zähle USB-Ports hinten exakt (z.B. 2x 2.0, 4x 3.2 Gen 1).
+        2. PCIe SLOTS: Fasse NICHT zusammen, wenn sie elektrisch unterschiedlich sind! 
+           Schreibe: "1x PCIe 5.0 x16, 1x PCIe 4.0 x16 (x4-Modus)" statt "2x PCIe x16".
+        3. RAM TAKT: Sei fleißig! Liste ALLE unterstützten OC-Frequenzen auf (z.B. "7200+(OC), 7000(OC)..."), nicht nur den Maximalwert.
+        4. CHIPSATZ: Achte auf Suffixe! "X670" ist NICHT "X670E". "B650" ist NICHT "B650E".
+        5. MODELL-VERWECHSLUNG: Wenn du per NAME suchst, achte peinlich genau auf Zusätze wie "WIFI", "E" (Extreme), "M" (Micro-ATX). 
+           Das "X870-F" ist NICHT das "X870E-E"!
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Produkttyp": "z.B. Motherboard - ATX",
-                "Chipsatz": "z.B. Intel Z790 oder AMD X870",
+                "Chipsatz": "Exakter Name (z.B. AMD X670E)",
                 "Prozessorsockel": "z.B. LGA1700 oder Socket AM5",
                 "Kompatible Prozessoren": "z.B. Unterstützt AMD Ryzen 9000 Series",
                 "Max. Anz. Prozessoren": "1"
@@ -384,7 +404,7 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
             "Unterstützter RAM": {
                 "Max. Größe": "z.B. 192 GB",
                 "Technologie": "z.B. DDR5",
-                "Bustakt": "Liste der Taktraten (z.B. 8000+(OC), 6000 MHz)",
+                "Bustakt": "VOLLE LISTE (z.B. 8000+(OC), ..., 4800 MHz)",
                 "Besonderheiten": "z.B. Dual Channel, EXPO, XMP",
                 "Registriert oder gepuffert": "Ungepuffert"
             },
@@ -396,10 +416,10 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Netzwerkschnittstellen": "z.B. 2.5 Gigabit Ethernet, Wi-Fi 7, Bluetooth 5.4"
             },
             "Erweiterung/Konnektivität": {
-                "Erweiterungssteckplätze": "Liste (z.B. 1x PCIe 5.0 x16, 2x PCIe 4.0 x16)",
+                "Erweiterungssteckplätze": "Detaillierte Liste (z.B. 1x PCIe 5.0 x16, 1x PCIe 4.0 x16 (x4 mode))",
                 "Speicherschnittstellen": "Liste (z.B. 4x SATA-600, 4x M.2)",
-                "Schnittstellen (Rückseite)": "EXAKTE LISTE (z.B. 2x USB4 (40Gbps), 1x HDMI, 4x USB 3.2 Gen 2, 4x USB 2.0)",
-                "Interne Schnittstellen": "Innen (z.B. 1x USB-C Header, 2x USB 2.0 Header)",
+                "Schnittstellen (Rückseite)": "EXAKTE LISTE I/O Panel (z.B. 1x HDMI, 2x USB-C, 4x USB 3.2 Type-A, 2x USB 2.0)",
+                "Interne Schnittstellen": "Header auf Board (z.B. 1x USB-C Header, 2x USB 2.0 Header, 1x Thunderbolt Header)",
                 "Stromanschlüsse": "z.B. 1x 24-Pin ATX, 2x 8-Pin 12V"
             },
             "Besonderheiten": {
@@ -561,10 +581,11 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS (ANTI-HALLUCINATION):
-        1. Formfaktor-Check: Ein "Micro-ATX" Gehäuse unterstützt KEIN Standard-ATX Mainboard! Prüfe das genau.
-        2. Lüfter: Wenn das Netzteil (PSU) vorne montiert wird (z.B. bei Mesh-Gehäusen wie AP201), gibt es vorne KEINE Lüfter!
-        3. CPU-Kühler: Suche nach dem exakten mm-Wert. Rate nicht "180mm", wenn es oft 170mm oder 160mm sind.
-        4. Wenn eine Info fehlt, schreibe "N/A" statt zu raten.
+        1. VERPACKUNG vs. PRODUKT: Unterscheide strikt zwischen "Package Dimensions" (Verpackung) und "Product Dimensions" (Gehäuse). Nimm IMMER die kleineren Werte!
+        2. GEWICHT: Suche nach "Net Weight" (Nettogewicht). Ignoriere "Gross Weight" (Versandgewicht).
+        3. Formfaktor-Check: Ein "Micro-ATX" Gehäuse unterstützt KEIN Standard-ATX Mainboard! Prüfe das genau.
+        4. CPU-Kühler/GPU: Suche nach dem exakten mm-Wert (z.B. "Max GPU Length").
+        5. Wenn eine Info fehlt, schreibe "N/A" statt zu raten.
 
         Benötigte JSON-Struktur:
         {
@@ -593,10 +614,10 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Spezifikationseinhaltung": "z.B. ATX"
             },
             "Abmessungen und Gewicht": {
-                "Breite": "mm",
-                "Tiefe": "mm",
-                "Höhe": "mm",
-                "Gewicht": "kg"
+                "Breite": "mm (Produktbreite - NICHT Karton!)",
+                "Tiefe": "mm (Produkttiefe - NICHT Karton!)",
+                "Höhe": "mm (Produkthöhe - NICHT Karton!)",
+                "Gewicht": "kg (Nettogewicht - NICHT Brutto!)"
             },
             "Herstellergarantie": {
                 "Service und Support": "Dauer"

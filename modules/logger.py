@@ -1,49 +1,52 @@
 import os
+import datetime
 import csv
-from datetime import datetime
+import re
 from .config import ERROR_FOLDER
 
-ERROR_CSV_PATH = os.path.join(ERROR_FOLDER, "failed_articles.csv")
+# Stelle sicher, dass der Error-Ordner existiert
+if not os.path.exists(ERROR_FOLDER):
+    os.makedirs(ERROR_FOLDER)
 
-def log_error(product_name, gtin, error_message, raw_content=None):
-    """
-    Loggt Fehler in eine zentrale CSV-Datei und speichert optional den Raw-Content.
-    """
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # 1. Sicherstellen, dass der Ordner existiert
-    if not os.path.exists(ERROR_FOLDER):
-        os.makedirs(ERROR_FOLDER)
+CSV_LOG_FILE = os.path.join(ERROR_FOLDER, "failed_articles.csv")
 
-    # 2. Prüfen, ob CSV Header braucht (wenn Datei neu ist)
-    file_exists = os.path.exists(ERROR_CSV_PATH)
+def sanitize_filename(name):
+    """ Entfernt Zeichen, die in Windows-Dateinamen verboten sind. """
+    if not name: return "unknown_error"
+    # Entferne | < > : " / \ ? *
+    return re.sub(r'[\\/*?:"<>|]', "", str(name)).strip().replace(" ", "_")
+
+def log_error(product_name, gtin, error_message, raw_content=""):
+    """
+    Loggt Fehler in eine CSV und speichert den rohen Antwort-Text in einer .txt Datei.
+    """
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
+    # 1. CSV Eintrag
+    file_exists = os.path.isfile(CSV_LOG_FILE)
     try:
-        with open(ERROR_CSV_PATH, mode='a', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile, delimiter=';')
-            
-            # Header schreiben, wenn Datei neu
+        with open(CSV_LOG_FILE, mode='a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f, delimiter=';')
             if not file_exists:
-                writer.writerow(['Timestamp', 'Produktname', 'GTIN', 'Fehler'])
+                writer.writerow(["Timestamp", "Produkt", "GTIN", "Fehler", "Log-Datei"])
             
-            # Fehlerzeile schreiben
-            writer.writerow([timestamp, product_name, gtin, str(error_message)])
+            # Dateinamen säubern!
+            safe_name = sanitize_filename(product_name)
+            log_filename = f"DEBUG_{safe_name}.txt"
             
-        print(f"   ⚠️ Fehler geloggt in: {ERROR_CSV_PATH}")
+            writer.writerow([timestamp, product_name, gtin, error_message, log_filename])
+            print(f"   ⚠️ Fehler geloggt in: {CSV_LOG_FILE}")
 
-        # 3. Optional: Raw Content speichern (für Debugging), falls vorhanden
+        # 2. Detail-Log (Textdatei)
         if raw_content:
-            safe_name = str(product_name).replace(" ", "_").replace("/", "-")[:50]
-            dump_file = os.path.join(ERROR_FOLDER, f"DEBUG_{safe_name}.txt")
-            with open(dump_file, "w", encoding="utf-8") as f:
-                f.write(f"Fehler: {error_message}\n")
-                f.write("-" * 50 + "\n")
+            debug_path = os.path.join(ERROR_FOLDER, log_filename)
+            with open(debug_path, "w", encoding="utf-8") as f:
+                f.write(f"PRODUKT: {product_name}\n")
+                f.write(f"GTIN: {gtin}\n")
+                f.write(f"FEHLER: {error_message}\n")
+                f.write("-" * 40 + "\n")
+                f.write("RAW RESPONSE:\n")
                 f.write(raw_content)
-
+                
     except Exception as e:
         print(f"❌ Kritisches Problem beim Loggen: {e}")
-
-def clear_error_log():
-    """ Löscht die alte Fehler-Log Datei beim Start (optional) """
-    if os.path.exists(ERROR_CSV_PATH):
-        os.remove(ERROR_CSV_PATH)

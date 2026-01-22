@@ -28,7 +28,7 @@ class HTMLGenerator:
         replacements = {
             "ä": "&auml;", "ö": "&ouml;", "ü": "&uuml;", "ß": "&szlig;",
             "Ä": "&Auml;", "Ö": "&Ouml;", "Ü": "&Uuml;",
-            ":": "&colon;" # Doppelpunkt auch escapen wie im Beispiel
+            ":": "&colon;" 
         }
         for k, v in replacements.items():
             text = text.replace(k, v)
@@ -46,13 +46,12 @@ class HTMLGenerator:
         # SPEZIAL 1: " GB" durch "&nbsp;GB" ersetzen (RAM/Speicher)
         value_safe = value_safe.replace(" GB", "&nbsp;GB")
         
-        # SPEZIAL 2: Trenner "¦" durch HTML-Umbruch ersetzen (für Listen wie Lüfter/Schnittstellen)
+        # SPEZIAL 2: Trenner "¦" durch HTML-Umbruch ersetzen
         if "¦" in value_safe:
             value_safe = value_safe.replace("¦", " <br /> ")
         
         css_class = "ITSr1" if is_odd else "ITSr0"
         
-        # Exakte Struktur mit Leerzeilen
         return f'''
 <div class="{css_class}">
 <div class="ITSn">{label_safe}</div>
@@ -138,9 +137,8 @@ class HTMLGenerator:
         gen = data.get("Allgemein", {})
         odd = True
         
-        # --- UPDATE: GTIN/EAN HINZUFÜGEN! ---
         keys_allgemein = [
-            "GTIN", "EAN", "GTIN_Gefunden", # <--- WICHTIG: Damit die Nummer nicht verschwindet!
+            "GTIN", "EAN", "GTIN_Gefunden",
             "Formfaktor", "Seitenplatte mit Fenster", "Seitliches Plattenmaterial mit Fenster",
             "Max. Mainboard-Größe", "Unterstützte Motherboards", "Anzahl interner Einbauschächte",
             "Integrierte Peripheriegeräte", "Produktmaterial", "Farbe", "Kühlsystem",
@@ -156,7 +154,7 @@ class HTMLGenerator:
 
         # 2. Erweiterung/Konnektivität
         conn = data.get("Erweiterung / Konnektivität", {})
-        if not conn: conn = data.get("Erweiterung/Konnektivität", {}) # Fallback für Schreibweise
+        if not conn: conn = data.get("Erweiterung/Konnektivität", {}) 
         
         if conn:
             html += '\n<div class="ITSg">Erweiterung/Konnektivität</div>\n'
@@ -189,7 +187,7 @@ class HTMLGenerator:
                     html += self._row(k, val, odd)
                     odd = not odd
 
-        # 5. Verschiedenes (Optional)
+        # 5. Verschiedenes
         misc = data.get("Verschiedenes", {})
         if misc:
             html += '\n<div class="ITSg">Verschiedenes</div>\n'
@@ -202,6 +200,165 @@ class HTMLGenerator:
         if warr:
             html += '\n<div class="ITSg">Herstellergarantie</div>\n'
             html += self._row("Service und Support", warr.get("Service und Support"), True)
+
+        html += '</div>'
+        return html
+
+    def _generate_gpu_html(self, data):
+        """ Spezial-Generator für Grafikkarten (GPU) """
+        html = '<div class="ITSs">\n'
+
+        # 1. Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        gen = data.get("Allgemein", {})
+        odd = True
+        
+        keys_gen = [
+            "Gerätetyp", "Bustyp", "Grafikprozessor", "Core Clock", "Boost-Takt",
+            "Streamprozessoren", "CUDA-Kerne", "Max Auflösung", 
+            "Anzahl der max. unterstützten Bildschirme", "Schnittstellendetails",
+            "API-Unterstützung", "Besonderheiten"
+        ]
+        
+        for k in keys_gen:
+            val = gen.get(k)
+            if val:
+                html += self._row(k, val, odd)
+                odd = not odd
+
+        # 2. Arbeitsspeicher
+        mem = data.get("Arbeitsspeicher", {})
+        if mem:
+            html += '\n<div class="ITSg">Arbeitsspeicher</div>\n'
+            keys_mem = ["Grösse", "Technologie", "Speichergeschwindigkeit", "Busbreite"]
+            for k in keys_mem:
+                val = mem.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 3. Systemanforderungen
+        sys = data.get("Systemanforderungen", {})
+        if sys:
+            html += '\n<div class="ITSg">Systemanforderungen</div>\n'
+            keys_sys = ["Erfoderliche Leistungsversorgung", "Zusätzliche Anforderungen"]
+            for k in keys_sys:
+                val = sys.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 4. Verschiedenes
+        misc = data.get("Verschiedenes", {})
+        dims = data.get("Abmessungen und Gewicht", {})
+        
+        if misc or dims:
+            html += '\n<div class="ITSg">Verschiedenes</div>\n'
+            
+            keys_misc = ["Zubehör im Lieferumfang", "Kennzeichnung", "Leistungsaufnahme im Betrieb"]
+            for k in keys_misc:
+                val = misc.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+            
+            dim_keys = ["Breite", "Tiefe", "Höhe", "Gewicht"]
+            for k in dim_keys:
+                val = misc.get(k) or dims.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 5. Garantie
+        warr = data.get("Herstellergarantie", {})
+        if warr:
+            html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+            html += self._row("Service und Support", warr.get("Service und Support"), True)
+
+        html += '</div>'
+        return html
+
+    def _generate_mainboard_html(self, data):
+        """ Spezial-Generator für Mainboards """
+        html = '<div class="ITSs">\n'
+
+        # 1. Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        gen = data.get("Allgemein", {})
+        odd = True
+        keys_gen = ["Produkttyp", "Chipsatz", "Prozessorsockel", "Max. Anz. Prozessoren", "Kompatible Prozessoren"]
+        for k in keys_gen:
+            val = gen.get(k)
+            if val:
+                html += self._row(k, val, odd)
+                odd = not odd
+
+        # 2. Unterstützter RAM
+        ram = data.get("Unterstützter RAM", {})
+        if ram:
+            html += '\n<div class="ITSg">Unterstützter RAM</div>\n'
+            keys_ram = ["Max. Größe", "Technologie", "Bustakt", "Unterstützte RAM-Integritätsprüfung", "Registriert oder gepuffert", "Besonderheiten"]
+            for k in keys_ram:
+                val = ram.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 3. Audio
+        audio = data.get("Audio", {})
+        if audio:
+            html += '\n<div class="ITSg">Audio</div>\n'
+            keys_audio = ["Typ", "Audio Codec", "Kompatibilität"]
+            for k in keys_audio:
+                val = audio.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 4. LAN
+        lan = data.get("LAN", {})
+        if lan:
+            html += '\n<div class="ITSg">LAN</div>\n'
+            keys_lan = ["Netzwerkcontroller", "Netzwerkschnittstellen"]
+            for k in keys_lan:
+                val = lan.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 5. Erweiterung/Konnektivität
+        conn = data.get("Erweiterung/Konnektivität", data.get("Erweiterung / Konnektivität", {}))
+        if conn:
+            html += '\n<div class="ITSg">Erweiterung/Konnektivität</div>\n'
+            # Hier haben wir "Schnittstellen" (allgemein) und "Interne Schnittstellen" unterschieden
+            keys_conn = ["Erweiterungssteckplätze", "Speicherschnittstellen", "Schnittstellen", "Schnittstellen (Rückseite)", "Interne Schnittstellen", "Stromanschlüsse"]
+            for k in keys_conn:
+                val = conn.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 6. Besonderheiten
+        feat = data.get("Besonderheiten", {})
+        if feat:
+            html += '\n<div class="ITSg">Besonderheiten</div>\n'
+            keys_feat = ["BIOS-Typ", "BIOS-Funktionen", "Sleep / Wake up", "Hardwarefeatures"]
+            for k in keys_feat:
+                val = feat.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 7. Verschiedenes
+        misc = data.get("Verschiedenes", {})
+        if misc:
+            html += '\n<div class="ITSg">Verschiedenes</div>\n'
+            keys_misc = ["Zubehör im Lieferumfang", "Enthaltene Kabel", "Software inbegriffen", "Kennzeichnung", "Breite", "Tiefe"]
+            for k in keys_misc:
+                val = misc.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
 
         html += '</div>'
         return html
@@ -236,7 +393,10 @@ class HTMLGenerator:
 
         # --- INTELLIGENTE WEICHE 🛡️ ---
         is_ram = False
-        is_case = False # Neu: Gehäuse-Erkennung
+        is_case = False 
+        is_gpu = False
+        is_mb = False
+        is_cpu = False
 
         # 1. RAM Check
         if "Speicher" in data:
@@ -244,18 +404,37 @@ class HTMLGenerator:
                 is_ram = True
         
         # 2. Case Check
-        # Wir prüfen auf typische Gehäuse-Felder im Allgemein-Block
+        allgemein = data.get("Allgemein", {})
         if not is_ram:
-            allgemein = data.get("Allgemein", {})
-            # "Max. Mainboard-Größe" ist ein sehr starkes Indiz für ein Gehäuse
             if "Max. Mainboard-Größe" in allgemein or "Systemgehäuse-Merkmale" in allgemein:
                 is_case = True
         
-        # Generator-Wahl
+        # 3. GPU Check
+        if not is_ram and not is_case:
+            if "Grafikprozessor" in allgemein or "CUDA-Kerne" in allgemein or "Streamprozessoren" in allgemein:
+                is_gpu = True
+
+        # 4. Mainboard Check
+        if not is_ram and not is_case and not is_gpu:
+            if "Chipsatz" in allgemein or "Prozessorsockel" in allgemein:
+                is_mb = True
+                
+        # 5. CPU Erkennung: Wenn "Anz. der Kerne" oder "Taktfrequenz" im Prozessor-Block steht
+        if not is_ram and not is_case and not is_gpu and not is_mb:
+            if "Anz. der Kerne" in data.get("Prozessor", {}) or "Taktfrequenz" in data.get("Prozessor", {}):
+                is_cpu = True        
+        
+        # Generator-Wahl (erweitern)
         if is_ram:
             technical_block = self._generate_ram_html(data)
         elif is_case:
             technical_block = self._generate_case_html(data)
+        elif is_gpu:
+            technical_block = self._generate_gpu_html(data)
+        elif is_mb:
+            technical_block = self._generate_mainboard_html(data)
+        elif is_cpu:  
+            technical_block = self._generate_cpu_html(data)
         else:
             technical_block = self.generate_generic_html(data)
         # -----------------------------------------------
@@ -282,8 +461,6 @@ class HTMLGenerator:
         return output_path
 
     def generate_all(self):
-        print(f"Zeilen in Excel gefunden: {len(df)}")
-        print(df[['Artikelname', 'Artikelnummer']].head())  
         print(f"🔄 Generiere HTMLs aus {self.json_folder}...")
         files = [f for f in os.listdir(self.json_folder) if f.endswith('.json')]
         
