@@ -126,10 +126,11 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS:
-        1. Kompatibilität: Liste ALLE unterstützten Sockel auf (z.B. LGA1700, AM5, AM4, LGA1200). Das ist das wichtigste Feld!
-        2. Maße: Die HÖHE ist kritisch für Gehäuse-Kompatibilität. Suche explizit danach.
-        3. Lüfter: Details zu RPM, Lautstärke (dBA/Sone) und Anschluss (4-Pin PWM) sind Pflicht.
-        4. Material: Unterscheide zwischen Kühlerboden (Kupfer) und Lamellen (Alu).
+        1. KOMPATIBILITÄT: Das ist das Wichtigste! Gib eine SAUBERE LISTE (Array) aller Sockel zurück.
+           Beispiel: ["LGA1700", "AM5", "AM4", "LGA1200", "LGA115x"].
+        2. MAßE: Die Gesamthöhe (mit Lüfter!) ist entscheidend für Gehäuse.
+        3. LÜFTER-SPECS: Suche nach Luftdruck (mmH2O), Luftstrom (CFM/m³/h) und Lautstärke.
+        4. STROM: Versuche Nennspannung (V), Nennstrom (A) und Verbrauch (W) zu finden.
 
         Benötigte JSON-Struktur:
         {
@@ -143,7 +144,7 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Farbe": "z.B. Schwarz / Weiß"
             },
             "Kühlkörper und Lüfter": {
-                "Kompatibel mit": "Liste der Sockel (z.B. LGA1700 Socket, Socket AM5, LGA1200)",
+                "Kompatibel mit": ["Sockel A", "Sockel B"],
                 "Kühlermaterial": "z.B. Aluminium und Kupfer",
                 "Lüfterdurchmesser": "z.B. 120 mm",
                 "Gebläsehöhe": "Dicke des Lüfters (z.B. 25 mm)",
@@ -154,7 +155,8 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Geräuschpegel": "z.B. 18 - 30 dBA",
                 "Netzanschluss": "z.B. PWM, 4-polig",
                 "Nennspannung": "12 V",
-                "Energieverbrauch": "Watt",
+                "Nennstrom": "A (z.B. 0.2 A)",
+                "Energieverbrauch": "Watt (z.B. 2.4 W)",
                 "Merkmale": "z.B. 4 Heatpipes, Direct Contact Technology, RGB"
             },
             "Verschiedenes": {
@@ -217,32 +219,38 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS:
-        1. Anschlüsse: Liste GENAU auf, wie viele Stecker vorhanden sind (z.B. "3 x 8-poliger PCI Express", "1 x 16-pin 12VHPWR").
-        2. Zertifizierung: Suche nach "80 PLUS" (Gold, Platinum, Titanium, Bronze).
-        3. Modularität: Ist es "Voll-modular", "Teil-modular" oder "Nicht modular"?
-        4. Ausgangsstrom: Versuche die Ampere-Werte für +3.3V, +5V und +12V zu finden.
+        1. ANSCHLÜSSE: Zähle EXAKT! "Angaben zu Ausgangsleistungsanschlüssen" muss eine Liste sein (z.B. "1 x 24-pin", "2 x 12VHPWR", "6 x PCIe 8-pin").
+        2. 12VHPWR CHECK: Suche explizit nach "12VHPWR", "PCIe 5.0", "16-pin" Kabeln (wichtig für RTX 40er Karten).
+        3. STROMSTÄRKEN: Fülle "Ausgangsstrom" detailliert (+3.3V, +5V, +12V Single/Multi-Rail).
+        4. MODULARITÄT: "Voll-modular", "Teil-modular" oder "Nicht modular"?
+        5. ZERTIFIZIERUNG: 80 PLUS (Gold, Platinum, Titanium?).
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Gerätetyp": "Netzteil - intern",
+                "Gerätetyp": "Netzteil - aktive Power Factor Correction (PFC) - intern",
                 "Spezifikationseinhaltung": "z.B. ATX12V 3.0 / EPS12V 2.92",
                 "Netzteil-Formfaktor": "z.B. ATX",
-                "Farbe": "z.B. Schwarz"
+                "Farbe": "z.B. Schwarz",
+                "Lokalisierung": "z.B. Europa"
             },
             "Stromversorgungsgerät": {
                 "Eingangsspannung": "z.B. Wechselstrom 100-240 V",
+                "Nötige Frequenz": "z.B. 50 - 60 Hz",
+                "Angaben zu Ausgangsleistungsanschlüssen": "Liste (z.B. 1x 24-Pin ATX, 1x 16-Pin 12VHPWR, 4x 8-Pin PCIe)",
+                "Ausgangsspannung": "z.B. +3.3, +5, ±12 V",
                 "Leistungskapazität": "Wattzahl (z.B. 850 Watt)",
-                "80-PLUS-Zertifizierung": "z.B. 80 PLUS Gold",
+                "Ausgangsstrom": "Liste (z.B. +3.3V - 20 A ¦ +5V - 20 A ¦ +12V - 70 A)",
+                "Effizienz": "z.B. 90% (80 PLUS Gold)",
                 "Modulare Kabelverwaltung": "Ja / Nein",
-                "Angaben zu Ausgangsleistungsanschlüssen": "Detaillierte Liste der Kabel (z.B. 1x 24-Pin, 2x EPS, 4x PCIe, 1x 12VHPWR)",
-                "Ausgangsstrom": "Ampere-Liste (z.B. +3.3V - 20 A / +5V - 20 A / +12V - 70 A)",
-                "Effizienz": "z.B. 90% bei 50% Last (falls verfügbar)"
+                "80-PLUS-Zertifizierung": "z.B. 80 PLUS Gold"
             },
             "Verschiedenes": {
-                "Besonderheiten": "z.B. Lüfter mit Doppelkugellager, Überspannungsschutz (OVP), Zero RPM Mode",
-                "Zubehör im Lieferumfang": "z.B. Kabelbinder, Schrauben, Netzkabel",
-                "Kühlsystem": "z.B. 135-mm-Lüfter"
+                "Besonderheiten": "Liste (z.B. OVP, OCP, OTP, Zero RPM Mode, Lüfterlager)",
+                "Zubehör im Lieferumfang": "z.B. Kabelbinder, Schrauben",
+                "Kühlsystem": "z.B. 135-mm-Lüfter",
+                "MTBF": "z.B. 100.000 Stunden",
+                "Kennzeichnung": "z.B. TUV, CB, CE"
             },
             "Abmessungen und Gewicht": {
                 "Breite": "cm",
@@ -251,7 +259,7 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Gewicht": "kg"
             },
             "Herstellergarantie": {
-                "Service und Support": "Dauer (z.B. Begrenzte Garantie - 10 Jahre)"
+                "Service und Support": "Dauer (z.B. 10 Jahre)"
             }
         }
         """

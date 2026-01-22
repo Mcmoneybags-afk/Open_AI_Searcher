@@ -39,16 +39,26 @@ class HTMLGenerator:
         if not value or str(value).lower() in ["n/a", "na", "none", ""]:
             return ""
         
-        # Umlaute ersetzen
+        # NEU: Listen-Handling 🛠️
+        # Wenn value eine echte Liste ist (z.B. ["OVP", "OCP"]), verbinden wir sie mit <br />
+        if isinstance(value, list):
+            # Bereinige jedes Element und verbinde
+            cleaned_list = [self._escape(str(item)) for item in value]
+            value_safe = " <br /> ".join(cleaned_list)
+        else:
+            # Standard-Handling für Text
+            label_safe = self._escape(label)
+            value_safe = self._escape(value)
+            
+            # SPEZIAL 1: " GB" durch "&nbsp;GB" ersetzen (RAM/Speicher)
+            value_safe = value_safe.replace(" GB", "&nbsp;GB")
+            
+            # SPEZIAL 2: Trenner "¦" durch HTML-Umbruch ersetzen
+            if "¦" in value_safe:
+                value_safe = value_safe.replace("¦", " <br /> ")
+
+        # Label immer escapen (wurde oben im else-Block gemacht, muss aber für beide Fälle gelten)
         label_safe = self._escape(label)
-        value_safe = self._escape(value)
-        
-        # SPEZIAL 1: " GB" durch "&nbsp;GB" ersetzen (RAM/Speicher)
-        value_safe = value_safe.replace(" GB", "&nbsp;GB")
-        
-        # SPEZIAL 2: Trenner "¦" durch HTML-Umbruch ersetzen
-        if "¦" in value_safe:
-            value_safe = value_safe.replace("¦", " <br /> ")
         
         css_class = "ITSr1" if is_odd else "ITSr0"
         
@@ -362,6 +372,323 @@ class HTMLGenerator:
 
         html += '</div>'
         return html
+    
+    def _generate_cpu_html(self, data):
+        """ Spezial-Generator für Prozessoren (CPUs) """
+        html = '<div class="ITSs">\n'
+
+        # 1. Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        
+        # Manuelle Abfrage der Allgemein-Werte für korrekte Reihenfolge
+        gen = data.get("Allgemein", {})
+        odd = True
+        
+        # Liste von (JSON-Key, HTML-Label)
+        keys_gen = [
+            ("Produkttyp", "Produkttyp"),
+            ("Prozessorhersteller", "Hersteller"), # Optional
+            ("Prozessorsockel", "Prozessorsockel"),
+            ("Box", "Boxed") # Optional
+        ]
+        
+        for k, label in keys_gen:
+            val = gen.get(k)
+            if val:
+                html += self._row(label, val, odd)
+                odd = not odd
+
+        # 2. Prozessor Details (DER WICHTIGE TEIL)
+        proc = data.get("Prozessor", {})
+        if proc:
+            html += '\n<div class="ITSg">Prozessor</div>\n'
+            # Wir definieren exakt, welche Keys aus dem JSON wir wollen
+            keys_proc = [
+                ("Typ / Formfaktor", "Typ / Formfaktor"),
+                ("Anz. der Kerne", "Anz. der Kerne"),
+                ("Anz. der Threads", "Anz. der Threads"),
+                ("Cache-Speicher", "Cache-Speicher"),
+                ("Cache-Speicher-Details", "Cache-Speicher-Details"),
+                ("Prozessoranz.", "Prozessoranz."),
+                ("Taktfrequenz", "Taktfrequenz"),
+                ("Max. Turbo-Taktfrequenz", "Max. Turbo-Taktfrequenz"),
+                ("Geeignete Sockel", "Geeignete Sockel"), # Falls hier doppelt, egal
+                ("Herstellungsprozess", "Herstellungsprozess"),
+                ("Thermal Design Power (TDP)", "Thermal Design Power (TDP)"),
+                ("Maximale Turbo-Leistung", "Maximale Turbo-Leistung"), # Neu!
+                ("Temperaturspezifikationen", "Temperaturspezifikationen"),
+                ("PCI Express Revision", "PCI Express Revision"),
+                ("PCI Express-Konfigurationen", "PCI Express-Konfigurationen"),
+                ("Anz. PCI Express Lanes", "Anz. PCI Express Lanes"),
+                ("Architektur-Merkmale", "Architektur-Merkmale")
+            ]
+            
+            for json_key, label in keys_proc:
+                val = proc.get(json_key)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 3. Integrierte Grafik (Nur wenn vorhanden)
+        gfx = data.get("Grafik", {}) # Achtung: Im JSON heißt der Block "Grafik", nicht "Integrierte Grafik"
+        if not gfx: gfx = data.get("Integrierte Grafik", {}) # Fallback
+        
+        # Check: Ist da wirklich eine GPU?
+        has_gfx = False
+        gfx_val = gfx.get("Eingebaute Grafikadapter", "")
+        if gfx_val and str(gfx_val).lower() in ["ja", "yes", "true", "1"]:
+             has_gfx = True
+        elif gfx.get("Typ"): # Fallback falls "Eingebaute Grafikadapter" fehlt
+             has_gfx = True
+
+        # Intel F-Serie Check (Sicherheitshalber)
+        prod_name = data.get("_Produktname", "")
+        if "F" in prod_name.split("-")[-1] and "KF" not in prod_name:
+             has_gfx = False
+
+        if has_gfx:
+            html += '\n<div class="ITSg">Integrierte Grafik</div>\n'
+            
+            keys_gfx = [
+                ("Typ", "Typ"), 
+                ("On-Board Grafikadaptermodell", "Typ"), # JSON nutzt oft diesen langen Key
+                ("Basisfrequenz", "Basisfrequenz"),
+                ("On-Board Grafikadapter Basisfrequenz", "Basisfrequenz"),
+                ("Maximale dynamische Frequenz der On-Board Grafikadapter", "Max. dynamische Frequenz")
+            ]
+            
+            # Wir iterieren und vermeiden Duplikate (Typ vs On-Board Modell)
+            seen_labels = set()
+            for json_key, label in keys_gfx:
+                if label in seen_labels: continue
+                
+                val = gfx.get(json_key)
+                if val and str(val).lower() not in ["n/a", "nein", "no"]:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+                    seen_labels.add(label)
+
+        # 4. Speicher Support
+        mem = data.get("Speicher", {})
+        if mem:
+            html += '\n<div class="ITSg">Speicher-Support</div>\n'
+            keys_mem = [
+                ("Maximaler interner Speicher, vom Prozessor unterstützt", "Max. Größe"),
+                ("Speichertaktraten, vom Prozessor unterstützt", "Speichertaktraten"),
+                ("Speicherkanäle", "Speicherkanäle"),
+                ("ECC", "ECC-Unterstützung")
+            ]
+            for json_key, label in keys_mem:
+                val = mem.get(json_key)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 5. Verschiedenes & Architektur
+        arch = data.get("Architektur-Merkmale", {})
+        misc = data.get("Verschiedenes", {})
+        
+        # Wenn Architektur-Merkmale separat sind (im JSON oft so)
+        arch_features = arch.get("Besonderheiten")
+        if arch_features:
+             # Wir packen das oft zu "Prozessor", aber hier ist es ein eigener Block im JSON
+             # Packen wir es zu Verschiedenes oder ans Ende von Prozessor?
+             # Deine Vorlage hat es im Prozessor-Block.
+             pass # Schon oben in keys_proc abgedeckt? Nein, da ist es im JSON unter "Prozessor".
+                  # Moment, im JSON ist es ein EIGENER Block "Architektur-Merkmale".
+        
+        # Korrektur: Architektur Merkmale explizit hinzufügen wenn noch nicht da
+        if arch_features:
+            html += '\n<div class="ITSg">Architektur</div>\n'
+            html += self._row("Besonderheiten", arch_features, odd)
+            odd = not odd
+
+        if misc:
+            html += '\n<div class="ITSg">Verschiedenes</div>\n'
+            keys_misc = ["Verpackung", "Zubehör im Lieferumfang"]
+            for k in keys_misc:
+                val = misc.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        html += '</div>'
+        return html
+
+    def _generate_psu_html(self, data):
+        """ Spezial-Generator für Netzteile (PSU) """
+        html = '<div class="ITSs">\n'
+
+        # 1. Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        gen = data.get("Allgemein", {})
+        odd = True
+        keys_gen = [
+            ("Gerätetyp", "Gerätetyp"),
+            ("Spezifikationseinhaltung", "Spezifikationseinhaltung"),
+            ("Netzteil-Formfaktor", "Netzteil-Formfaktor"),
+            ("Farbe", "Farbe"),
+            ("Lokalisierung", "Lokalisierung")
+        ]
+        for k, label in keys_gen:
+            val = gen.get(k)
+            if val:
+                html += self._row(label, val, odd)
+                odd = not odd
+
+        # 2. Stromversorgungsgerät (Der wichtigste Teil)
+        power = data.get("Stromversorgungsgerät", {})
+        if power:
+            html += '\n<div class="ITSg">Stromversorgungsgerät</div>\n'
+            # Feste Reihenfolge gemäß Vorlage
+            keys_power = [
+                ("Eingangsspannung", "Eingangsspannung"),
+                ("Nötige Frequenz", "Nötige Frequenz"),
+                ("Angaben zu Ausgangsleistungsanschlüssen", "Angaben zu Ausgangsleistungsanschlüssen"),
+                ("Ausgangsspannung", "Ausgangsspannung"),
+                ("Leistungskapazität", "Leistungskapazität"),
+                ("Ausgangsstrom", "Ausgangsstrom"),
+                ("Effizienz", "Effizienz"),
+                ("Leistungsfaktor (LF)", "Leistungsfaktor (LF)"),
+                ("Modulare Kabelverwaltung", "Modulare Kabelverwaltung"),
+                ("80-PLUS-Zertifizierung", "80-PLUS-Zertifizierung")
+            ]
+            
+            for k, label in keys_power:
+                val = power.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 3. Verschiedenes
+        misc = data.get("Verschiedenes", {})
+        if misc:
+            html += '\n<div class="ITSg">Verschiedenes</div>\n'
+            keys_misc = [
+                ("Enthaltene Kabel", "Enthaltene Kabel"),
+                ("Zubehör im Lieferumfang", "Zubehör im Lieferumfang"),
+                ("MTBF", "MTBF"),
+                ("Kühlsystem", "Kühlsystem"),
+                ("Besonderheiten", "Besonderheiten"),
+                ("Kennzeichnung", "Kennzeichnung")
+            ]
+            for k, label in keys_misc:
+                val = misc.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 4. Nachhaltigkeit (Optional)
+        sust = data.get("Informationen zur Nachhaltigkeit", {})
+        if sust:
+             html += '\n<div class="ITSg">Informationen zur Nachhaltigkeit</div>\n'
+             val = sust.get("ENERGY STAR")
+             if val:
+                 html += self._row("ENERGY STAR", val, odd)
+                 odd = not odd
+
+        # 5. Garantie
+        warr = data.get("Herstellergarantie", {})
+        if warr:
+            html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+            html += self._row("Service und Support", warr.get("Service und Support"), True)
+
+        # 6. Umgebungsbedingungen (Optional)
+        env = data.get("Umgebungsbedingungen", {})
+        if env:
+            html += '\n<div class="ITSg">Umgebungsbedingungen</div>\n'
+            html += self._row("Max. Betriebstemperatur", env.get("Max. Betriebstemperatur"), True)
+
+        # 7. Abmessungen
+        dims = data.get("Abmessungen und Gewicht", {})
+        if dims:
+            html += '\n<div class="ITSg">Abmessungen und Gewicht</div>\n'
+            keys_dims = ["Breite", "Tiefe", "Höhe", "Gewicht"]
+            for k in keys_dims:
+                val = dims.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        html += '</div>'
+        return html
+    
+    def _generate_cooler_html(self, data):
+        """ Spezial-Generator für CPU-Kühler """
+        html = '<div class="ITSs">\n'
+
+        # 1. Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        gen = data.get("Allgemein", {})
+        odd = True
+        keys_gen = [
+            ("Produkttyp", "Produkttyp"),
+            ("Packungsinhalt", "Packungsinhalt"),
+            ("Breite", "Breite"),
+            ("Tiefe", "Tiefe"),
+            ("Höhe", "Höhe"),
+            ("Gewicht", "Gewicht"),
+            ("Farbe", "Farbe"),
+            ("Transportabmessungen (B x T x H)/Gewicht", "Transportabmessungen") # Falls vorhanden
+        ]
+        for k, label in keys_gen:
+            val = gen.get(k)
+            if val:
+                html += self._row(label, val, odd)
+                odd = not odd
+
+        # 2. Kühlkörper und Lüfter (Das Herzstück)
+        cool = data.get("Kühlkörper und Lüfter", {})
+        if cool:
+            html += '\n<div class="ITSg">Kühlkörper und Lüfter</div>\n'
+            keys_cool = [
+                ("Kompatibel mit", "Kompatibel mit"),
+                ("Kühlermaterial", "Kühlermaterial"),
+                ("Lüfterdurchmesser", "Lüfterdurchmesser"),
+                ("Gebläsehöhe", "Gebläsehöhe"),
+                ("Lüfterlager", "Lüfterlager"),
+                ("Drehgeschwindigkeit", "Drehgeschwindigkeit"),
+                ("Luftstrom", "Luftstrom"),
+                ("Luftdruck", "Luftdruck"),
+                ("Geräuschpegel", "Geräuschpegel"),
+                ("Netzanschluss", "Netzanschluss"),
+                ("Nennspannung", "Nennspannung"),
+                ("Nennstrom", "Nennstrom"),
+                ("Energieverbrauch", "Energieverbrauch"),
+                ("Kabellänge", "Kabellänge"),
+                ("Merkmale", "Merkmale")
+            ]
+            
+            for k, label in keys_cool:
+                val = cool.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 3. Verschiedenes
+        misc = data.get("Verschiedenes", {})
+        if misc:
+            html += '\n<div class="ITSg">Verschiedenes</div>\n'
+            keys_misc = [
+                ("Montagekit", "Montagekit"),
+                ("MTBF", "MTBF"),
+                ("Kennzeichnung", "Kennzeichnung"),
+                ("Besonderheiten", "Besonderheiten")
+            ]
+            for k, label in keys_misc:
+                val = misc.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 4. Garantie
+        warr = data.get("Herstellergarantie", {})
+        if warr:
+            html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+            html += self._row("Service und Support", warr.get("Service und Support"), True)
+
+        html += '</div>'
+        return html
 
     def generate_generic_html(self, data):
         """ Der Standard-Generator für alle anderen Kategorien """
@@ -397,6 +724,10 @@ class HTMLGenerator:
         is_gpu = False
         is_mb = False
         is_cpu = False
+        is_psu = False
+        is_cooler = False
+
+        allgemein = data.get("Allgemein", {})
 
         # 1. RAM Check
         if "Speicher" in data:
@@ -404,7 +735,6 @@ class HTMLGenerator:
                 is_ram = True
         
         # 2. Case Check
-        allgemein = data.get("Allgemein", {})
         if not is_ram:
             if "Max. Mainboard-Größe" in allgemein or "Systemgehäuse-Merkmale" in allgemein:
                 is_case = True
@@ -414,27 +744,45 @@ class HTMLGenerator:
             if "Grafikprozessor" in allgemein or "CUDA-Kerne" in allgemein or "Streamprozessoren" in allgemein:
                 is_gpu = True
 
-        # 4. Mainboard Check
+        # 4. CPU Check (JETZT VOR MAINBOARD!)
+        # Wir prüfen auf Kerne/Takt im Prozessor-Block -> Das hat KEIN Mainboard
         if not is_ram and not is_case and not is_gpu:
+            if "Anz. der Kerne" in data.get("Prozessor", {}) or "Taktfrequenz" in data.get("Prozessor", {}):
+                is_cpu = True
+
+        # 5. Mainboard Check (NACH CPU)
+        if not is_ram and not is_case and not is_gpu and not is_cpu:
             if "Chipsatz" in allgemein or "Prozessorsockel" in allgemein:
                 is_mb = True
                 
-        # 5. CPU Erkennung: Wenn "Anz. der Kerne" oder "Taktfrequenz" im Prozessor-Block steht
-        if not is_ram and not is_case and not is_gpu and not is_mb:
-            if "Anz. der Kerne" in data.get("Prozessor", {}) or "Taktfrequenz" in data.get("Prozessor", {}):
-                is_cpu = True        
-        
-        # Generator-Wahl (erweitern)
+        # 6. PSU Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu:
+             # Prüfen auf typische Netzteil-Schlüsselwörter
+             power_block = data.get("Stromversorgungsgerät", {})
+             if "Leistungskapazität" in power_block or "80-PLUS-Zertifizierung" in power_block:
+                 is_psu = True
+                 
+        # 7. Cooler Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu:
+             # Wir suchen nach dem spezifischen Block aus dem Prompt
+             if "Kühlkörper und Lüfter" in data:
+                 is_cooler = True                 
+                
+        # Generator-Wahl
         if is_ram:
             technical_block = self._generate_ram_html(data)
         elif is_case:
             technical_block = self._generate_case_html(data)
         elif is_gpu:
             technical_block = self._generate_gpu_html(data)
+        elif is_cpu:
+            technical_block = self._generate_cpu_html(data)
+        elif is_psu:
+            technical_block = self._generate_psu_html(data)
+        elif is_cooler:  
+            technical_block = self._generate_cooler_html(data)
         elif is_mb:
             technical_block = self._generate_mainboard_html(data)
-        elif is_cpu:  
-            technical_block = self._generate_cpu_html(data)
         else:
             technical_block = self.generate_generic_html(data)
         # -----------------------------------------------

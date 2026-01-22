@@ -227,6 +227,8 @@ def main(stop_event=None):
     
     # Hilfsfunktion um zu prüfen ob es eine relevante Datei ist
     def is_data_file(f):
+        # WICHTIG: Ignoriere temporäre Excel-Lock-Dateien (starten mit ~$)
+        if f.startswith("~$"): return False
         return f.lower().endswith((".csv", ".xlsx", ".xls"))
 
     # 1. Scanne ROOT (Unsortiert)
