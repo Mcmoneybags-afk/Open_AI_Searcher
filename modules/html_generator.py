@@ -69,7 +69,7 @@ class HTMLGenerator:
 <div class="ITSv">{value_safe}</div>
 </div>
 '''
-
+#RAMS
     def _generate_ram_html(self, data):
         """ Spezial-Generator für Arbeitsspeicher (RAM) """
         html = '<div class="ITSs">\n'
@@ -137,7 +137,7 @@ class HTMLGenerator:
 
         html += '</div>'
         return html
-
+#Gehäuse
     def _generate_case_html(self, data):
         """ Spezial-Generator für PC-Gehäuse """
         html = '<div class="ITSs">\n'
@@ -213,7 +213,7 @@ class HTMLGenerator:
 
         html += '</div>'
         return html
-
+#GPU
     def _generate_gpu_html(self, data):
         """ Spezial-Generator für Grafikkarten (GPU) """
         html = '<div class="ITSs">\n'
@@ -287,7 +287,7 @@ class HTMLGenerator:
 
         html += '</div>'
         return html
-
+#Mainboard
     def _generate_mainboard_html(self, data):
         """ Spezial-Generator für Mainboards """
         html = '<div class="ITSs">\n'
@@ -372,7 +372,7 @@ class HTMLGenerator:
 
         html += '</div>'
         return html
-    
+ #CPU   
     def _generate_cpu_html(self, data):
         """ Spezial-Generator für Prozessoren (CPUs) """
         html = '<div class="ITSs">\n'
@@ -514,7 +514,7 @@ class HTMLGenerator:
 
         html += '</div>'
         return html
-
+#Netzteile
     def _generate_psu_html(self, data):
         """ Spezial-Generator für Netzteile (PSU) """
         html = '<div class="ITSs">\n'
@@ -612,7 +612,7 @@ class HTMLGenerator:
 
         html += '</div>'
         return html
-    
+#Wasserkühlung   
     def _generate_cooler_html(self, data):
         """ Spezial-Generator für CPU-Kühler """
         html = '<div class="ITSs">\n'
@@ -689,6 +689,377 @@ class HTMLGenerator:
 
         html += '</div>'
         return html
+    
+    def _generate_monitor_html(self, data):
+        """ Spezial-Generator für Monitore """
+        html = '<div class="ITSs">\n'
+
+        # 1. Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        gen = data.get("Allgemein", {})
+        odd = True
+        
+        keys_gen = [
+            ("Gerätetyp", "Gerätetyp"),
+            ("Energie Effizienzklasse", "Energie Effizienzklasse"),
+            ("Energieklasse (HDR)", "Energieklasse (HDR)"),
+            ("Diagonalabmessung", "Diagonalabmessung"),
+            ("Geschwungener Bildschirm", "Geschwungener Bildschirm"),
+            ("Panel-Typ", "Panel-Typ"),
+            ("Seitenverhältnis", "Seitenverhältnis"),
+            ("Native Auflösung", "Native Auflösung"),
+            ("Helligkeit", "Helligkeit"),
+            ("Kontrast", "Kontrast"),
+            ("HDR-Zertifizierung", "HDR-Zertifizierung"),
+            ("Reaktionszeit", "Reaktionszeit"),
+            ("Farbunterstützung", "Farbunterstützung"),
+            ("Farbe", "Farbe")
+        ]
+        
+        for k, label in keys_gen:
+            val = gen.get(k)
+            if val:
+                html += self._row(label, val, odd)
+                odd = not odd
+
+        # 2. Bildqualität
+        qual = data.get("Bildqualität", {})
+        if qual:
+            html += '\n<div class="ITSg">Bildqualität</div>\n'
+            keys_qual = [("Farbraum", "Farbraum"), ("Besonderheiten", "Besonderheiten")]
+            for k, label in keys_qual:
+                val = qual.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 3. Konnektivität
+        conn = data.get("Konnektivität", {})
+        if conn:
+            html += '\n<div class="ITSg">Konnektivität</div>\n'
+            html += self._row("Schnittstellen", conn.get("Schnittstellen"), odd)
+            odd = not odd
+
+        # 4. Mechanisch
+        mech = data.get("Mechanisch", {})
+        if mech:
+            html += '\n<div class="ITSg">Mechanisch</div>\n'
+            keys_mech = [
+                ("Einstellungen der Anzeigeposition", "Einstellungen der Anzeigeposition"),
+                ("Höheneinstellung", "Höheneinstellung"),
+                ("Neigungswinkel", "Neigungswinkel"),
+                ("VESA-Halterung", "VESA-Halterung")
+            ]
+            for k, label in keys_mech:
+                val = mech.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 5. Stromversorgung
+        power = data.get("Stromversorgung", {})
+        if power:
+            html += '\n<div class="ITSg">Stromversorgung</div>\n'
+            keys_power = [
+                ("Eingangsspannung", "Eingangsspannung"),
+                ("Stromverbrauch SDR (eingeschaltet)", "Stromverbrauch SDR (eingeschaltet)"),
+                ("Stromverbrauch HDR (eingeschaltet)", "Stromverbrauch HDR (eingeschaltet)")
+            ]
+            for k, label in keys_power:
+                val = power.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 6. Abmessungen
+        dims = data.get("Abmessungen und Gewicht", {})
+        if dims:
+            html += '\n<div class="ITSg">Abmessungen und Gewicht</div>\n'
+            html += self._row("Details", dims.get("Details"), odd)
+            odd = not odd
+
+        # 7. Garantie
+        warr = data.get("Herstellergarantie", {})
+        if warr:
+            html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+            html += self._row("Service und Support", warr.get("Service und Support"), True)
+
+        html += '</div>'
+        return html
+    
+#Festplatten HDD/SSD/NVMe    
+    def _generate_storage_html(self, data):
+        """ Spezial-Generator für Festplatten (SSD/HDD) """
+        html = '<div class="ITSs">\n'
+
+        # 1. Merkmale / Funktionen (Das wichtigste)
+        # Wir prüfen beide Keys, da die KI manchmal variiert
+        feats = data.get("Merkmale", data.get("Funktionen", {}))
+        if feats:
+            html += '<div class="ITSg">Merkmale</div>\n'
+            odd = True
+            keys_feats = [
+                ("SSD-Formfaktor", "SSD-Formfaktor"),
+                ("SSD Speicherkapazität", "SSD Speicherkapazität"), # SSD
+                ("Festplattenkapazität", "Speicherkapazität"),      # HDD Fallback
+                ("Schnittstelle", "Schnittstelle"),
+                ("Speichertyp", "Speichertyp"),
+                ("NVMe", "NVMe"),
+                ("Komponente für", "Komponente für"),
+                ("Hardwareverschlüsselung", "Hardwareverschlüsselung"), # Oft hier einsortiert
+                ("Unterstützte Sicherheitsalgorithmen", "Unterstützte Sicherheitsalgorithmen"),
+                ("Datenübertragungsrate", "Datenübertragungsrate"),
+                ("Lesegeschwindigkeit", "Lesegeschwindigkeit"),
+                ("Schreibgeschwindigkeit", "Schreibgeschwindigkeit"),
+                ("DevSlp (Geräteschlaf)-Unterstützung", "DevSlp (Geräteschlaf)-Unterstützung"),
+                ("S.M.A.R.T. Unterstützung", "S.M.A.R.T. Unterstützung"),
+                ("TRIM-Unterstützung", "TRIM-Unterstützung"),
+                ("Mittlere Betriebsdauer zwischen Ausfällen (MTBF)", "Mittlere Betriebsdauer zwischen Ausfällen (MTBF)"),
+                ("TBW-Bewertung", "TBW-Bewertung")
+            ]
+            
+            for json_key, label in keys_feats:
+                val = feats.get(json_key)
+                # Fallback: Manchmal packt die KI Sicherheit in einen eigenen Block, manchmal hier rein.
+                if not val and json_key in ["Hardwareverschlüsselung", "Unterstützte Sicherheitsalgorithmen"]:
+                    val = data.get("Sicherheit", {}).get(json_key)
+
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 2. Sonstige Funktionen
+        misc = data.get("Sonstige Funktionen", {})
+        if misc:
+             val = misc.get("Produktfarbe") or data.get("Allgemein", {}).get("Farbe")
+             if val:
+                 html += '\n<div class="ITSg">Sonstige Funktionen</div>\n'
+                 html += self._row("Produktfarbe", val, True)
+
+        # 3. Leistung / Energie
+        perf = data.get("Leistung", data.get("Energie", {}))
+        if perf:
+            html += '\n<div class="ITSg">Leistung</div>\n'
+            odd = True
+            keys_perf = ["Stromverbrauch (max.)", "Stromverbrauch (durchschnittl.)", "Stromverbrauch (Leerlauf)"]
+            for k in keys_perf:
+                val = perf.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 4. Gewicht und Abmessungen
+        dims = data.get("Gewicht und Abmessungen", data.get("Abmessungen und Gewicht", {}))
+        if dims:
+            html += '\n<div class="ITSg">Gewicht und Abmessungen</div>\n'
+            odd = True
+            keys_dims = ["Breite", "Tiefe", "Höhe", "Gewicht"]
+            for k in keys_dims:
+                val = dims.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 5. Betriebsbedingungen
+        env = data.get("Betriebsbedingungen", {})
+        if env:
+            html += '\n<div class="ITSg">Betriebsbedingungen</div>\n'
+            odd = True
+            keys_env = ["Temperaturbereich in Betrieb", "Stoßfest (in Betrieb)"]
+            for k in keys_env:
+                val = env.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 6. Verpackung
+        pack = data.get("Verpackungsdaten", data.get("Verpackungsinformation", {}))
+        if pack:
+            html += '\n<div class="ITSg">Verpackungsdaten</div>\n'
+            keys_pack = ["Verpackungsart", "Betriebsanleitung"]
+            for k in keys_pack:
+                val = pack.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        html += '</div>'
+        return html
+ #Wasserkühlung AIO   
+    def _generate_watercooling_html(self, data):
+        """ Spezial-Generator für Wasserkühlungen (AiO) """
+        html = '<div class="ITSs">\n'
+
+        # 1. Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        gen = data.get("Allgemein", {})
+        odd = True
+        
+        keys_gen = [
+            ("Produkttyp", "Produkttyp"),
+            ("Packungsinhalt", "Packungsinhalt"),
+            ("Breite", "Breite"),
+            ("Tiefe", "Tiefe"),
+            ("Höhe", "Höhe"),
+            ("Gewicht", "Gewicht"),
+            ("Farbe", "Farbe")
+        ]
+        for k, label in keys_gen:
+            val = gen.get(k)
+            if val:
+                html += self._row(label, val, odd)
+                odd = not odd
+
+        # 2. Kühlkörper und Lüfter
+        cool = data.get("Kühlkörper und Lüfter", {})
+        if cool:
+            html += '\n<div class="ITSg">Kühlkörper und Lüfter</div>\n'
+            keys_cool = [
+                ("Kompatibel mit", "Kompatibel mit"),
+                ("Prozessorkompatibilität", "Prozessorkompatibilität"), # <--- WICHTIG
+                ("Kühlermaterial", "Kühlermaterial"),
+                ("Radiatormaterial", "Radiatormaterial"),
+                ("Kühlerabmessungen", "Kühlerabmessungen"), # <--- WICHTIG
+                ("Gebläseanzahl", "Gebläseanzahl"),         # <--- WICHTIG
+                ("Lüfterdurchmesser", "Lüfterdurchmesser"),
+                ("Gebläsehöhe", "Gebläsehöhe"),
+                ("Lüfterlager", "Lüfterlager"),
+                ("Drehgeschwindigkeit", "Drehgeschwindigkeit"),
+                ("Luftstrom", "Luftstrom"),
+                ("Luftdruck", "Luftdruck"),
+                ("Geräuschpegel", "Geräuschpegel"),
+                ("Netzanschluss", "Netzanschluss"),
+                ("Merkmale", "Merkmale")
+            ]
+            
+            for k, label in keys_cool:
+                val = cool.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 3. Verschiedenes
+        misc = data.get("Verschiedenes", {})
+        if misc:
+            html += '\n<div class="ITSg">Verschiedenes</div>\n'
+            keys_misc = ["Montagekit", "Leistungsmerkmale", "Zubehör im Lieferumfang", "MTBF"]
+            for k in keys_misc:
+                val = misc.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 4. Garantie
+        warr = data.get("Herstellergarantie", {})
+        if warr:
+            html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+            html += self._row("Service und Support", warr.get("Service und Support"), True)
+
+        html += '</div>'
+        return html
+
+    def _generate_input_device_html(self, data):
+        """ Spezial-Generator für Eingabegeräte (Robust & Sauber) """
+        html = '<div class="ITSs">\n'
+
+        # Hilfs-Variablen
+        gen = data.get("Allgemein", {})
+        tech = data.get("Technische Daten", {})
+        conn = data.get("Konnektivität", {})
+        inp = data.get("Eingabegerät", {})
+        point = data.get("Zeigegerät", {})
+        misc = data.get("Verschiedenes", {})
+
+        # Helper zum Suchen von Werten über alle Blöcke hinweg
+        def get_val(*keys):
+            for k in keys:
+                for source in [gen, conn, tech, inp, point, misc]:
+                    if k in source and source[k] and str(source[k]).lower() not in ["n/a", "none", ""]:
+                        return source[k]
+            return None
+
+        # 1. Allgemein (immer da)
+        html += '<div class="ITSg">Allgemein</div>\n'
+        odd = True
+        html += self._row("Gerätetyp", get_val("Gerätetyp", "Typ"), odd); odd = not odd
+        html += self._row("Schnittstelle", get_val("Schnittstelle", "Anschlusstechnik"), odd); odd = not odd
+        html += self._row("Kabelloser Empfänger", get_val("Kabelloser Empfänger"), odd); odd = not odd
+        html += self._row("Hintergrundbeleuchtung", get_val("Hintergrundbeleuchtung"), odd); odd = not odd
+        html += self._row("Farbe", get_val("Farbe", "Produktfarbe"), odd); odd = not odd
+
+        # 2. Eingabegerät (Tastatur) - Temporärer Buffer
+        temp_html = ""
+        # Wir sammeln Daten
+        layout = get_val("Layout", "Lokalisierung und Layout", "Tastaturaufbau")
+        switches = get_val("Tastenschalter", "Key Switch Typ", "Tastatur-Switch")
+        tech_val = get_val("Tastaturtechnologie")
+        ff = get_val("Formfaktor", "Tastatur Formfaktor")
+        anti = get_val("Anti-Ghosting")
+        
+        # Zeilen bauen
+        if layout: temp_html += self._row("Layout", layout, odd); odd = not odd
+        if tech_val: temp_html += self._row("Technologie", tech_val, odd); odd = not odd
+        if switches: temp_html += self._row("Schaltertyp", switches, odd); odd = not odd
+        if ff: temp_html += self._row("Formfaktor", ff, odd); odd = not odd
+        
+        keys_count = get_val("Anzahl Tasten", "Tastenanzahl")
+        if keys_count and str(keys_count).isdigit() and int(keys_count) > 20:
+             temp_html += self._row("Anzahl Tasten", keys_count, odd); odd = not odd
+        
+        if anti: temp_html += self._row("Anti-Ghosting", anti, odd); odd = not odd
+        
+        # Nur hinzufügen, wenn Daten da sind
+        if temp_html:
+            html += '\n<div class="ITSg">Eingabegerät (Tastatur)</div>\n' + temp_html
+
+        # 3. Zeigegerät (Maus) - Temporärer Buffer
+        temp_html = ""
+        sensor = get_val("Movement Detection Technologie", "Sensor", "Sensor-Technologie")
+        dpi = get_val("Bewegungsauflösung", "Auflösung", "Auflösung (DPI)")
+        perf = get_val("Leistung")
+        align = get_val("Ausrichtung")
+
+        if sensor: temp_html += self._row("Sensor-Technologie", sensor, odd); odd = not odd
+        if dpi: temp_html += self._row("Auflösung (DPI)", dpi, odd); odd = not odd
+        
+        # Maus Tasten (< 20)
+        keys_count = get_val("Anzahl Tasten", "Tastenanzahl")
+        if keys_count and (not str(keys_count).isdigit() or int(keys_count) < 20):
+             temp_html += self._row("Anzahl Tasten", keys_count, odd); odd = not odd
+
+        if perf: temp_html += self._row("Leistung", perf, odd); odd = not odd
+        if align: temp_html += self._row("Ausrichtung", align, odd); odd = not odd
+
+        if temp_html:
+            html += '\n<div class="ITSg">Zeigegerät (Maus)</div>\n' + temp_html
+
+        # 4. Verschiedenes
+        temp_html = ""
+        specials = get_val("Besonderheiten")
+        acc = get_val("Zubehör im Lieferumfang")
+        cable = get_val("Kabellänge")
+        soft = get_val("Software", "Software & Systemanforderungen")
+        dims = get_val("Abmessungen (BxTxH)", "Abmessungen")
+        weight = get_val("Gewicht") # Gewicht packen wir hierhin oder zu Allgemein
+
+        if specials: temp_html += self._row("Besonderheiten", specials, odd); odd = not odd
+        if acc: temp_html += self._row("Zubehör im Lieferumfang", acc, odd); odd = not odd
+        if cable: temp_html += self._row("Kabellänge", cable, odd); odd = not odd
+        if soft: temp_html += self._row("Software", soft, odd); odd = not odd
+        if dims: temp_html += self._row("Abmessungen", dims, odd); odd = not odd
+        if weight: temp_html += self._row("Gewicht", weight, odd); odd = not odd
+
+        if temp_html:
+            html += '\n<div class="ITSg">Verschiedenes</div>\n' + temp_html
+
+        # 5. Garantie
+        warr = data.get("Herstellergarantie", {})
+        if warr:
+            html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+            html += self._row("Service und Support", warr.get("Service und Support"), True)
+
+        html += '</div>'
+        return html
 
     def generate_generic_html(self, data):
         """ Der Standard-Generator für alle anderen Kategorien """
@@ -726,6 +1097,10 @@ class HTMLGenerator:
         is_cpu = False
         is_psu = False
         is_cooler = False
+        is_monitor = False
+        is_storage = False
+        is_water = False
+        is_input = False
 
         allgemein = data.get("Allgemein", {})
 
@@ -766,7 +1141,52 @@ class HTMLGenerator:
         if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu:
              # Wir suchen nach dem spezifischen Block aus dem Prompt
              if "Kühlkörper und Lüfter" in data:
-                 is_cooler = True                 
+                 is_cooler = True  
+                 
+        # 8. Monitor Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler:
+             # Prüfe auf typische Monitor-Keys
+             if "Diagonalabmessung" in allgemein or "Native Auflösung" in allgemein:
+                 is_monitor = True   
+                 
+        # 9. Storage Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler and not is_monitor:
+             # Prüfe auf typische Speicher-Keys in "Merkmale" oder "Allgemein"
+             merkmale = data.get("Merkmale", {})
+             if "SSD Speicherkapazität" in merkmale or "Festplattenkapazität" in merkmale or "TBW-Bewertung" in merkmale:
+                 is_storage = True
+             # Fallback für einfache HDDs
+             if "U/min" in str(merkmale) and "Cache" in str(merkmale): # Typisch HDD
+                 is_storage = True  
+        
+        # 10. Watercooling Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler and not is_monitor and not is_storage:
+             if "Radiator-Abmessungen" in data.get("Kühlkörper und Lüfter", {}) or "Radiator" in str(data):
+                 is_water = True
+             # Fallback: Wenn "Wasserkühlung" im Titel steht
+             prod_name_lower = data.get("_Produktname", "").lower()
+             if "wasser" in prod_name_lower or "liquid" in prod_name_lower or "aio" in prod_name_lower:
+                 is_water = True   
+                 
+        # 11. Input Device Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler and not is_monitor and not is_storage and not is_water:
+             
+             # Helper function to check if a key exists in ANY dictionary in data
+             def key_exists(key, d):
+                 if isinstance(d, dict):
+                     if key in d: return True
+                     for v in d.values():
+                         if isinstance(v, dict) and key_exists(key, v): return True
+                 return False
+
+             # Aggressive Prüfung auf Eingabe-Features, egal wo sie stehen
+             if key_exists("Bewegungsauflösung", data) or key_exists("Tastaturtechnologie", data) or key_exists("Tastenschalter", data):
+                 is_input = True
+             
+             # Fallback Name
+             prod_name_lower = data.get("_Produktname", "").lower()
+             if "tastatur" in prod_name_lower or "keyboard" in prod_name_lower or "maus" in prod_name_lower or "mouse" in prod_name_lower:
+                 is_input = True                                         
                 
         # Generator-Wahl
         if is_ram:
@@ -779,8 +1199,16 @@ class HTMLGenerator:
             technical_block = self._generate_cpu_html(data)
         elif is_psu:
             technical_block = self._generate_psu_html(data)
-        elif is_cooler:  
+        elif is_cooler:
             technical_block = self._generate_cooler_html(data)
+        elif is_monitor:
+            technical_block = self._generate_monitor_html(data)
+        elif is_storage:
+            technical_block = self._generate_storage_html(data)
+        elif is_water:
+            technical_block = self._generate_watercooling_html(data)
+        elif is_input:  
+            technical_block = self._generate_input_device_html(data)
         elif is_mb:
             technical_block = self._generate_mainboard_html(data)
         else:

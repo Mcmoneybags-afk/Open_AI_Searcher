@@ -485,37 +485,43 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """
 
-    elif "speicher" in cat_lower or "ssd" in cat_lower or "hdd" in cat_lower or "festplatte" in cat_lower:
+    elif "speicher" in cat_lower or "ssd" in cat_lower or "hdd" in cat_lower or "festplatte" in cat_lower or "hard drive" in cat_lower:
         return base_prompt + """
         Kategorie: Speicher (SSD / HDD)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS:
-        1. Geschwindigkeit: Lesen/Schreiben in MB/s (z.B. 3500 MB/s).
-        2. Kapazität: Exakte Größe (z.B. 1000 GB, 2 TB).
-        3. Schnittstelle: PCIe 4.0, SATA III etc.
-        4. Formfaktor: M.2 2280, 2.5 Zoll etc.
-        5. Haltbarkeit: Suche nach TBW (Total Bytes Written) und MTBF.
+        1. GESCHWINDIGKEIT: Lesen/Schreiben in MB/s (z.B. 7450 MB/s).
+        2. SCHNITTSTELLE: Exakt! "Serial ATA III", "PCI Express 4.0 x4", "SAS".
+        3. FORMFAKTOR: "M.2 2280", "2.5\"", "3.5\"".
+        4. HALTBARKEIT: Suche nach "TBW-Bewertung" (Total Bytes Written) und "MTBF".
+        5. FEATURE: "NVMe": Ja/Nein.
 
         Benötigte JSON-Struktur:
         {
             "Merkmale": {
-                "Gerätetyp": "z.B. SSD oder HDD",
+                "Gerätetyp": "z.B. Solid State Drive (SSD) oder Festplatte (HDD)",
                 "SSD Speicherkapazität": "z.B. 1000 GB",
-                "SSD-Formfaktor": "z.B. M.2 2280",
-                "Schnittstelle": "z.B. PCI Express 4.0 x4 (NVMe)",
+                "SSD-Formfaktor": "z.B. M.2 2280 oder 2.5\"",
+                "Schnittstelle": "z.B. Serial ATA III oder PCI Express 4.0 x4",
                 "NVMe": "Ja / Nein",
-                "Komponente für": "z.B. PC/notebook"
+                "Komponente für": "PC/notebook",
+                "Speichertyp": "z.B. 3D NAND, V-NAND, TLC",
+                "Datenübertragungsrate": "z.B. 6 Gbit/s",
+                "Lesegeschwindigkeit": "z.B. 560 MB/s",
+                "Schreibgeschwindigkeit": "z.B. 530 MB/s",
+                "S.M.A.R.T. Unterstützung": "Ja / Nein",
+                "TRIM-Unterstützung": "Ja / Nein",
+                "TBW-Bewertung": "z.B. 600",
+                "Mittlere Betriebsdauer zwischen Ausfällen (MTBF)": "z.B. 1.500.000 h"
+            },
+            "Sicherheit": {
+                "Hardwareverschlüsselung": "Ja / Nein",
+                "Unterstützte Sicherheitsalgorithmen": "z.B. 256-bit AES"
             },
             "Leistung": {
-                "Lesegeschwindigkeit": "z.B. 7000 MB/s",
-                "Schreibgeschwindigkeit": "z.B. 5000 MB/s",
-                "Mittlere Betriebsdauer zwischen Ausfällen (MTBF)": "z.B. 1.500.000 h",
-                "TBW": "z.B. 600 TB"
-            },
-            "Betriebsbedingungen": {
-                "Betriebstemperatur": "z.B. 0 - 70 °C",
-                "Temperaturbereich bei Lagerung": "z.B. -40 - 85 °C"
+                "Stromverbrauch (max.)": "Watt",
+                "Stromverbrauch (durchschnittl.)": "Watt"
             },
             "Gewicht und Abmessungen": {
                 "Breite": "mm",
@@ -523,8 +529,12 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Höhe": "mm",
                 "Gewicht": "g"
             },
-            "Technische Details": {
-                "Nachhaltigkeitszertifikate": "z.B. RoHS, CE"
+            "Betriebsbedingungen": {
+                "Temperaturbereich in Betrieb": "z.B. 0 - 70 °C",
+                "Stoßfest (in Betrieb)": "z.B. 1500 G"
+            },
+            "Verpackungsdaten": {
+                "Verpackungsart": "z.B. Box"
             }
         }
         """
@@ -535,19 +545,21 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS:
-        1. Auflösung/Hz: Suche nach Details pro Anschluss (z.B. "DP: 165Hz, HDMI: 144Hz").
-        2. Panel: Welcher Typ? (IPS, VA, TN, OLED, QD-OLED).
-        3. Ergonomie: Höhenverstellbar? Neigbar? VESA-Mount vorhanden?
-        4. Farbe: Farbraumabdeckung (sRGB, DCI-P3, Adobe RGB) detailliert listen.
+        1. AUFLÖSUNG: Nenne die Auflösung UND die Bildwiederholrate (Hz). Wenn möglich pro Anschluss (z.B. "DP: 165Hz, HDMI: 144Hz").
+        2. PANEL: Welcher Typ? (IPS, VA, TN, OLED, QD-OLED, Mini-LED).
+        3. ANSCHLÜSSE: Sei extrem präzise! "USB-C mit 65W PD" ist besser als nur "USB-C".
+        4. FARBE: Farbraumabdeckung (sRGB, DCI-P3, Adobe RGB) als Liste oder Text.
+        5. ERGONOMIE: Höhenverstellbar? Pivot (hochkant)? VESA?
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Gerätetyp": "z.B. LED-hintergrundbeleuchteter LCD-Monitor",
                 "Energie Effizienzklasse": "z.B. Klasse F",
+                "Energieklasse (HDR)": "z.B. Klasse G",
                 "Diagonalabmessung": "z.B. 27 Zoll (69 cm)",
                 "Geschwungener Bildschirm": "Ja (1500R) / Nein",
-                "Panel-Typ": "z.B. IPS, VA, Rapid VA",
+                "Panel-Typ": "z.B. IPS, VA, Rapid VA, QD-OLED",
                 "Seitenverhältnis": "z.B. 16:9",
                 "Native Auflösung": "z.B. WQHD 2560 x 1440 (DisplayPort: 170 Hz)",
                 "Helligkeit": "z.B. 400 cd/m²",
@@ -558,7 +570,7 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
             },
             "Bildqualität": {
                 "Farbraum": "Detaillierte Liste (z.B. 120% sRGB, 95% DCI-P3)",
-                "Besonderheiten": "z.B. Flicker-Free, Low Blue Light, AMD FreeSync Premium"
+                "Besonderheiten": "z.B. Flicker-Free, Low Blue Light, AMD FreeSync Premium, G-Sync Compatible"
             },
             "Konnektivität": {
                 "Schnittstellen": "Liste (z.B. 2x HDMI 2.1, 1x DisplayPort 1.4, 1x USB-C mit 65W PD, Audio Out)"
@@ -581,7 +593,7 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Service und Support": "Dauer (z.B. 3 Jahre)"
             }
         }
-        """    
+        """   
 
     elif "gehäuse" in cat_lower:
         return base_prompt + """
@@ -985,47 +997,51 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """  
         
-    elif "wasserkühlung" in cat_lower or "water cooling" in cat_lower or "aio" in cat_lower or "liquid cooler" in cat_lower:
+    elif "wasserkühlung" in cat_lower or "water cooling" in cat_lower or "aio" in cat_lower or "liquid cooler" in cat_lower or "liquid" in cat_lower:
         return base_prompt + """
-        Kategorie: Wasserkühlung (AiO / Liquid)
+        Kategorie: Wasserkühlung (AiO / Liquid Cooler)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS:
-        1. Kompatibilität: Suche explizit nach neuen Sockeln (LGA1851, LGA1700, AM5). Das ist Kaufentscheidend!
-        2. Materialien: Unterscheide Kühlerbasis (meist Kupfer) und Radiator (meist Aluminium). Suche auch nach Schlauchmaterial (EPDM).
-        3. Lüfter-Specs: Luftdruck (mmH2O), Luftstrom (CFM) und Lager-Typ (Magnetisch, Rifle, etc.).
-        4. Maße: Radiator-Abmessungen sind wichtiger als die Pumpen-Maße.
+        1. RADIATOR: Maße sind kritisch! Nutze Key "Kühlerabmessungen" (z.B. 394 x 120 x 27 mm).
+        2. LÜFTER: Anzahl (Key: "Gebläseanzahl").
+        3. KOMPATIBILITÄT: Liste der Sockel als ARRAY ["LGA1700", "AM5"].
+        4. CPU-FAMILIEN: Liste unterstützte Serien unter "Prozessorkompatibilität" (z.B. Core i9, Ryzen).
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Produkttyp": "Prozessor-Flüssigkeitskühlsystem",
-                "Produktmaterial": "z.B. Aluminium (Radiator), Kupfer (Basis), EPDM (Schläuche)",
-                "Packungsinhalt": "z.B. Wärmeleitpaste, Montagekit",
-                "Farbe": "z.B. Weiß / Schwarz",
-                "Gewicht": "kg"
+                "Gewicht": "g oder kg",
+                "Farbe": "z.B. Schwarz",
+                "Breite": "cm (Radiator)",
+                "Tiefe": "cm",
+                "Höhe": "cm"
             },
             "Kühlkörper und Lüfter": {
-                "Kompatibel mit": "Liste der Sockel (z.B. LGA1851, LGA1700, Socket AM5)",
-                "Radiatormaterial": "z.B. Aluminium",
+                "Kompatibel mit": ["Sockel A", "Sockel B"],
+                "Prozessorkompatibilität": "Liste (z.B. Core i9, Core i7, Ryzen)",
                 "Kühlermaterial": "z.B. Kupfer",
-                "Gebläseanzahl": "z.B. 3",
+                "Radiatormaterial": "z.B. Aluminium",
+                "Kühlerabmessungen": "z.B. 276 mm x 120 mm x 27 mm",
+                "Gebläseanzahl": "z.B. 2",
                 "Lüfterdurchmesser": "z.B. 120 mm",
-                "Lüfterlager": "z.B. Magnetisches Kuppellager oder Rifle Bearing",
-                "Drehgeschwindigkeit": "z.B. 500-2000 U/min",
-                "Luftstrom": "z.B. 94.87 CFM",
-                "Luftdruck": "z.B. 3.91 mm",
-                "Geräuschpegel": "dBA",
-                "Netzanschluss": "z.B. PWM, 4-polig, ARGB",
-                "Merkmale": "z.B. Zero RPM-Lüftermodus, Daisy-Chain, iCUE Support"
+                "Gebläsehöhe": "z.B. 25 mm",
+                "Lüfterlager": "z.B. Magnetisches Kuppellager",
+                "Drehgeschwindigkeit": "z.B. 300 - 2100 U/min",
+                "Luftstrom": "z.B. 10.4-73.5 cfm",
+                "Luftdruck": "z.B. 0.12-4.33 mm",
+                "Geräuschpegel": "z.B. 10 - 36 dBA",
+                "Netzanschluss": "z.B. PWM, 4-polig",
+                "Merkmale": "z.B. RGB-Lüfter, Gummischläuche"
             },
-            "Abmessungen (Radiator)": {
-                 "Breite": "cm (Länge)",
-                 "Tiefe": "cm (Breite)",
-                 "Höhe": "cm (Dicke)"
+            "Verschiedenes": {
+                "Montagekit": "Mitgeliefert",
+                "Leistungsmerkmale": "z.B. Corsair iCUE",
+                "Zubehör im Lieferumfang": "Liste"
             },
             "Herstellergarantie": {
-                "Service und Support": "Dauer (z.B. 5 oder 6 Jahre)"
+                "Service und Support": "Dauer"
             }
         }
         """
@@ -1084,43 +1100,55 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """  
         
-    elif "tastatur_wg34" in cat_lower or "tastatur" in cat_lower and "wg34" in cat_lower:
+    elif "tastatur" in cat_lower or "keyboard" in cat_lower or "maus" in cat_lower or "mouse" in cat_lower or "eingabegerät" in cat_lower:
         return base_prompt + """
-        Kategorie: Tastatur (Keyboard)
+        Kategorie: Eingabegerät (Tastatur / Maus / Set)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS:
-        1. Layout: Deutsch (QWERTZ), US (QWERTY) oder UK? Wichtigstes Feld!
-        2. Typ: Mechanisch (welche Switches? Rot/Blau/Braun/Speed) oder Rubberdome/Membran?
-        3. Verbindung: Kabel (Länge?), Wireless (2.4GHz), Bluetooth?
-        4. Beleuchtung: RGB, Einfarbig oder Keine?
+        1. TYP-CHECK: Ist es NUR eine Maus? NUR eine Tastatur? Oder ein SET?
+        2. TASTATUR-DATEN: Fülle "Eingabegerät" (Switches, Layout, N-Key Rollover).
+        3. MAUS-DATEN: Fülle "Zeigegerät" (DPI, Sensor, Tastenanzahl).
+        4. VERBINDUNG: "Verkabelt" (USB) oder "Kabellos" (2.4 GHz/Bluetooth). Batterien?
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Gerätetyp": "Tastatur",
-                "Modell": "Name",
-                "Farbe": "z.B. Schwarz / Weiß",
-                "Lokalisierung und Layout": "z.B. Deutsch (QWERTZ)"
+                "Gerätetyp": "z.B. Maus / Tastatur / Tastatur-und-Maus-Set",
+                "Schnittstelle": "z.B. USB, 2.4 GHz, Bluetooth",
+                "Kabelloser Empfänger": "z.B. Nano USB-Empfänger",
+                "Hintergrundbeleuchtung": "z.B. RGB / Nein",
+                "Farbe": "z.B. Schwarz"
             },
             "Eingabegerät": {
-                "Tastaturtechnologie": "z.B. Mechanisch oder Membran (Rubberdome)",
-                "Tastenschalter": "z.B. Cherry MX Red / Razer Green",
-                "Anschlusstechnik": "z.B. Verkabelt (USB) oder Kabellos",
-                "Besonderheiten": "z.B. Nummernblock, Handballenauflage, Spritzwassergeschützt"
-            },
-            "Konnektivität": {
-                "Schnittstelle": "z.B. USB 2.0 / USB-C / Bluetooth",
-                "Kabellänge": "z.B. 1.5 m"
-            },
-            "Abmessungen und Gewicht": {
-                "Breite": "cm",
-                "Tiefe": "cm",
-                "Höhe": "cm",
+                "Typ": "Tastatur",
+                "Tastaturtechnologie": "z.B. Mechanisch, Schere, Membran",
+                "Key Switch Typ": "z.B. Cherry MX Red, Razer Green",
+                "Lokalisierung und Layout": "z.B. QWERTZ / Deutsch",
+                "Formfaktor": "z.B. Full-Size (100%), Tenkeyless (TKL)",
+                "Tastenanzahl": "z.B. 105",
+                "Anti-Ghosting": "Ja / Nein",
+                "Handgelenkauflage": "Ja / Nein",
+                "Abmessungen (BxTxH)": "cm",
                 "Gewicht": "g"
             },
-            "Herstellergarantie": {
-                "Service und Support": "Dauer"
+            "Zeigegerät": {
+                "Typ": "Maus",
+                "Movement Detection Technologie": "z.B. Optisch / Laser",
+                "Bewegungsauflösung": "z.B. 26000 dpi",
+                "Anzahl Tasten": "z.B. 11",
+                "Leistung": "z.B. 50 G Beschleunigung, 650 IPS",
+                "Ausrichtung": "z.B. Rechts, Beidhändig",
+                "Abmessungen (BxTxH)": "cm",
+                "Gewicht": "g"
+            },
+            "Verschiedenes": {
+                "Zubehör im Lieferumfang": "z.B. Batterien, Handballenauflage",
+                "Kabellänge": "m",
+                "Software & Systemanforderungen": "z.B. Razer Synapse, Windows 10/11"
+            },
+             "Herstellergarantie": {
+                "Service und Support": "Dauer (z.B. 2 Jahre)"
             }
         }
         """  
