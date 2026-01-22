@@ -1060,6 +1060,363 @@ class HTMLGenerator:
 
         html += '</div>'
         return html
+    
+    def _generate_audio_html(self, data):
+        """ Spezial-Generator für Audio (Robust für Headsets & Lautsprecher) """
+        html = '<div class="ITSs">\n'
+
+        # Hilfs-Variablen für alle möglichen Blöcke
+        gen = data.get("Allgemein", {})
+        audio_out = data.get("Audioausgang", {})
+        tech = data.get("Technische Daten", {}) # Der "Rebell"-Block
+        conn_block = data.get("Anschlüsse", {}) # Noch ein "Rebell"-Block
+        mic = data.get("Mikrofon", {})
+        speaker = data.get("Lautsprecher", {})
+        power = data.get("Stromversorgung", {})
+        misc = data.get("Verschiedenes", {})
+        
+        # Helper zum Suchen von Werten
+        def get_val(*keys):
+            for k in keys:
+                for source in [gen, audio_out, tech, conn_block, mic, speaker, power, misc]:
+                    if k in source and source[k] and str(source[k]).lower() not in ["n/a", "none", "", "nein"]:
+                        return source[k]
+            return None
+
+        # 1. Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        odd = True
+        
+        # Wir holen die wichtigsten Werte, egal wo sie stehen
+        html += self._row("Produkttyp", get_val("Produkttyp", "Gerätetyp"), odd); odd = not odd
+        html += self._row("Formfaktor", get_val("Kopfhörer-Formfaktor", "Formfaktor", "Bauform"), odd); odd = not odd
+        html += self._row("Lautsprechertyp", get_val("Lautsprechertyp"), odd); odd = not odd
+        html += self._row("Verwendung", get_val("Empfohlene Verwendung"), odd); odd = not odd
+        html += self._row("Farbe", get_val("Farbe"), odd); odd = not odd
+        html += self._row("Gewicht", get_val("Gewicht"), odd); odd = not odd
+
+        # 2. Audio-Specs (Headset & Boxen gemischt)
+        # Wir sammeln alles in einem Buffer
+        temp_html = ""
+        
+        mode = get_val("Soundmodus", "Audio Kanäle")
+        freq = get_val("Frequenzgang", "Frequenzbereich")
+        imp = get_val("Impedanz")
+        sens = get_val("Empfindlichkeit")
+        driver = get_val("Membran", "Treibergröße")
+        rms = get_val("RMS-Leistung", "Leistung") # Bei Lautsprechern oft in Leistung
+        
+        if mode: temp_html += self._row("Soundmodus", mode, odd); odd = not odd
+        if freq: temp_html += self._row("Frequenzgang", freq, odd); odd = not odd
+        if imp: temp_html += self._row("Impedanz", imp, odd); odd = not odd
+        if sens: temp_html += self._row("Empfindlichkeit", sens, odd); odd = not odd
+        if driver: temp_html += self._row("Treibergröße", driver, odd); odd = not odd
+        if rms: temp_html += self._row("Leistung (RMS)", rms, odd); odd = not odd
+
+        if temp_html:
+            html += '\n<div class="ITSg">Audio-Spezifikationen</div>\n' + temp_html
+
+        # 3. Mikrofon (Nur wenn vorhanden)
+        mic_type = get_val("Typ", "Richtcharakteristik")
+        # Check ob es nach Mikrofon aussieht
+        if mic_type or "mikrofon" in str(data).lower():
+            temp_html = ""
+            if mic_type: temp_html += self._row("Mikrofon-Typ", mic_type, odd); odd = not odd
+            
+            # Manchmal sind Mikrofon-Frequenzen separat gelistet, oft aber schwer zu trennen.
+            # Wir verlassen uns hier auf explizite Mikrofon-Blöcke wenn möglich.
+            mic_freq = mic.get("Frequenzgang")
+            if mic_freq: temp_html += self._row("Frequenzgang (Mikro)", mic_freq, odd); odd = not odd
+            
+            if temp_html:
+                html += '\n<div class="ITSg">Mikrofon</div>\n' + temp_html
+
+        # 4. Verbindungen & Strom
+        temp_html = ""
+        conn_tech = get_val("Anschlusstechnik", "Schnittstelle", "Verbindung")
+        wireless = get_val("Drahtlose Technologie", "Bluetooth-Version")
+        battery = get_val("Batterie", "Akku")
+        runtime = get_val("Betriebszeit (bis zu)", "Akkulaufzeit")
+        
+        if conn_tech: temp_html += self._row("Anschlusstechnik", conn_tech, odd); odd = not odd
+        if wireless: temp_html += self._row("Wireless-Tech", wireless, odd); odd = not odd
+        if battery: temp_html += self._row("Batterie", battery, odd); odd = not odd
+        if runtime: temp_html += self._row("Akkulaufzeit", runtime, odd); odd = not odd
+        
+        if temp_html:
+            html += '\n<div class="ITSg">Verbindungen & Energie</div>\n' + temp_html
+
+        # 5. Verschiedenes
+        temp_html = ""
+        feat = get_val("Besonderheiten", "Zusätzliche Funktionen")
+        acc = get_val("Zubehör im Lieferumfang")
+        
+        if feat: temp_html += self._row("Besonderheiten", feat, odd); odd = not odd
+        if acc: temp_html += self._row("Zubehör", acc, odd); odd = not odd
+
+        if temp_html:
+            html += '\n<div class="ITSg">Verschiedenes</div>\n' + temp_html
+
+        # 6. Garantie
+        warr = data.get("Herstellergarantie", {})
+        val = warr.get("Service und Support")
+        if val:
+            html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+            html += self._row("Service und Support", val, True)
+
+        html += '</div>'
+        return html
+    
+    def _generate_usb_stick_html(self, data):
+        """ Spezial-Generator für USB-Sticks (Nach Shop-Schablone) """
+        html = '<div class="ITSs">\n'
+
+        # 1. Leistungen (Das Herzstück)
+        perf = data.get("Leistungen", data.get("Speicher", {}))
+        if perf:
+            html += '<div class="ITSg">Leistungen</div>\n'
+            odd = True
+            keys_perf = [
+                ("Kapazität", "Kapazität"),
+                ("Geräteschnittstelle", "Geräteschnittstelle"),
+                ("USB-Version", "USB-Version"),
+                ("Lesegeschwindigkeit", "Lesegeschwindigkeit"),
+                ("Schreibgeschwindigkeit", "Schreibgeschwindigkeit"),
+                ("Kompatible Betriebssysteme", "Kompatible Betriebssysteme")
+            ]
+            for k, label in keys_perf:
+                val = perf.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 2. Design
+        design = data.get("Design", data.get("Allgemein", {}))
+        if design:
+            html += '\n<div class="ITSg">Design</div>\n'
+            # Reset odd/even optional, hier machen wir weiter
+            keys_design = [
+                ("Formfaktor", "Formfaktor"),
+                ("Produktfarbe", "Produktfarbe"),
+                ("Schlüsselanhänger", "Schlüsselanhänger")
+            ]
+            for k, label in keys_design:
+                val = design.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 3. Lieferumfang
+        box = data.get("Lieferumfang", {})
+        if box:
+            val = box.get("Menge pro Packung")
+            if val:
+                html += '\n<div class="ITSg">Lieferumfang</div>\n'
+                html += self._row("Menge pro Packung", val, odd); odd = not odd
+
+        # 4. Gewicht und Abmessungen
+        dims = data.get("Gewicht und Abmessungen", data.get("Abmessungen und Gewicht", {}))
+        if dims:
+            html += '\n<div class="ITSg">Gewicht und Abmessungen</div>\n'
+            keys_dims = ["Breite", "Tiefe", "Höhe", "Gewicht"]
+            for k in keys_dims:
+                val = dims.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 5. Technische Details / Betriebsbedingungen
+        tech = data.get("Technische Details", {})
+        env = data.get("Betriebsbedingungen", {})
+        
+        # Falls Technische Details da sind (HS Code)
+        if tech:
+             val = tech.get("Warentarifnummer (HS)")
+             if val:
+                 html += '\n<div class="ITSg">Technische Details</div>\n'
+                 html += self._row("Warentarifnummer (HS)", val, odd); odd = not odd
+
+        if env:
+            html += '\n<div class="ITSg">Betriebsbedingungen</div>\n'
+            keys_env = ["Betriebstemperatur", "Temperaturbereich bei Lagerung"]
+            for k in keys_env:
+                val = env.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 6. Garantie
+        warr = data.get("Herstellergarantie", {})
+        if warr:
+            html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+            html += self._row("Service und Support", warr.get("Service und Support"), True)
+
+        html += '</div>'
+        return html
+    
+    def _generate_network_html(self, data):
+        """ Spezial-Generator für Netzwerkadapter (WLAN / LAN) """
+        html = '<div class="ITSs">\n'
+
+        # 1. Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        gen = data.get("Allgemein", {})
+        odd = True
+        keys_gen = [
+            ("Gerätetyp", "Gerätetyp"),
+            ("Formfaktor", "Formfaktor"),
+            ("Schnittstellentyp", "Schnittstellentyp (Bustyp)"),
+            ("Farbe", "Produktfarbe")
+        ]
+        for k, label in keys_gen:
+            val = gen.get(k)
+            if val:
+                html += self._row(label, val, odd)
+                odd = not odd
+
+        # 2. Anschlüsse und Schnittstellen (Aus Schablone 2)
+        conn_if = data.get("Anschlüsse und Schnittstellen", {})
+        if conn_if:
+            html += '\n<div class="ITSg">Anschlüsse und Schnittstellen</div>\n'
+            keys_conn = [
+                ("Anzahl Ethernet-LAN-Anschlüsse (RJ-45)", "Anzahl Ethernet-LAN-Anschlüsse (RJ-45)"),
+                ("Hostschnittstelle", "Hostschnittstelle"),
+                ("Schnittstelle", "Schnittstelle"),
+                ("Übertragungstechnik", "Übertragungstechnik")
+            ]
+            for k, label in keys_conn:
+                val = conn_if.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 3. Netzwerk (Das Herzstück)
+        net = data.get("Netzwerk", {})
+        if net:
+            html += '\n<div class="ITSg">Netzwerk</div>\n'
+            keys_net = [
+                ("Anschlusstechnik", "Anschlusstechnik"),
+                ("Netzstandard", "Netzstandard"),
+                ("Data Link Protocol", "Data Link Protocol"),
+                ("Datenübertragungsrate", "Datenübertragungsrate"),
+                ("Maximale Datenübertragungsrate", "Maximale Datenübertragungsrate"),
+                ("Ethernet LAN Datentransferraten", "Ethernet LAN Datentransferraten"),
+                ("Verkabelungstechnologie", "Verkabelungstechnologie"),
+                ("Frequenzband", "Frequenzband"), # WLAN
+                ("Vollduplex", "Vollduplex"),
+                ("Jumbo Frames Unterstützung", "Jumbo Frames Unterstützung"),
+                ("Wake-on-LAN bereit", "Wake-on-LAN bereit"),
+                ("Leistungsmerkmale", "Leistungsmerkmale"),
+                ("Statusanzeiger", "Statusanzeiger"),
+                ("Produktzertifizierungen", "Produktzertifizierungen")
+            ]
+            for k, label in keys_net:
+                val = net.get(k)
+                if val:
+                    html += self._row(label, val, odd)
+                    odd = not odd
+
+        # 4. Antenne (WLAN)
+        ant = data.get("Antenne", {})
+        if ant:
+            val1 = ant.get("Antenne")
+            val2 = ant.get("Antennenanzahl")
+            if val1 or val2:
+                html += '\n<div class="ITSg">Antenne</div>\n'
+                if val1: html += self._row("Typ", val1, odd); odd = not odd
+                if val2: html += self._row("Anzahl", val2, odd); odd = not odd
+
+        # 5. Erweiterung / Konnektivität (Aus Schablone 1)
+        ext = data.get("Erweiterung/Konnektivität", data.get("Erweiterung / Konnektivität", {}))
+        if ext:
+             html += '\n<div class="ITSg">Erweiterung/Konnektivität</div>\n'
+             keys_ext = [("Schnittstellen", "Schnittstellen")]
+             for k, label in keys_ext:
+                 val = ext.get(k)
+                 if val: html += self._row(label, val, odd); odd = not odd
+
+        # 6. Systemanforderung
+        sys = data.get("Systemanforderung", data.get("Software / Systemanforderungen", {}))
+        if sys:
+             html += '\n<div class="ITSg">Systemanforderung</div>\n'
+             keys_sys = [("Erforderliches Betriebssystem", "Erforderliches Betriebssystem"), 
+                         ("Unterstützte Linux-Betriebssysteme", "Unterstützte Linux-Betriebssysteme"),
+                         ("Unterstützt Windows-Betriebssysteme", "Unterstützt Windows-Betriebssysteme")]
+             for k, label in keys_sys:
+                 val = sys.get(k)
+                 if val: html += self._row(label, val, odd); odd = not odd
+
+        # 7. Betriebsbedingungen
+        env = data.get("Betriebsbedingungen", data.get("Umgebungsbedingungen", {}))
+        if env:
+            html += '\n<div class="ITSg">Betriebsbedingungen</div>\n'
+            keys_env = ["Temperaturbereich in Betrieb", "Temperaturbereich bei Lagerung", "Min Betriebstemperatur", "Max. Betriebstemperatur", "Luftfeuchtigkeit in Betrieb"]
+            for k, label in keys_env:
+                val = env.get(k)
+                if val:
+                    html += self._row(k, val, odd)
+                    odd = not odd
+
+        # 8. Garantie
+        warr = data.get("Herstellergarantie", {})
+        if warr:
+            html += '\n<div class="ITSg">Herstellergarantie</div>\n'
+            html += self._row("Service und Support", warr.get("Service und Support"), True)
+
+        html += '</div>'
+        return html
+    
+    def _generate_mousepad_html(self, data):
+        """ Spezial-Generator für Mauspads """
+        html = '<div class="ITSs">\n'
+        
+        # Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        gen = data.get("Allgemein", {})
+        odd = True
+        keys_gen = [("Gerätetyp", "Gerätetyp"), ("Produktmaterial", "Material"), ("Farbe", "Farbe"), 
+                    ("Breite", "Breite"), ("Tiefe", "Tiefe"), ("Höhe", "Dicke")]
+        for k, label in keys_gen:
+            val = gen.get(k)
+            if val: html += self._row(label, val, odd); odd = not odd
+
+        # Verschiedenes
+        misc = data.get("Verschiedenes", {})
+        if misc:
+            html += '\n<div class="ITSg">Verschiedenes</div>\n'
+            keys_misc = [("Besonderheiten", "Besonderheiten"), ("Größenklasse", "Größe")]
+            for k, label in keys_misc:
+                val = misc.get(k)
+                if val: html += self._row(label, val, odd); odd = not odd
+        
+        html += '</div>'
+        return html
+
+    def _generate_service_html(self, data):
+        """ Spezial-Generator für Services """
+        html = '<div class="ITSs">\n'
+
+        # Allgemein
+        html += '<div class="ITSg">Allgemein</div>\n'
+        gen = data.get("Allgemein", {})
+        odd = True
+        keys_gen = [("Produkttyp", "Typ"), ("Dienstleistungstyp", "Leistung"), ("Lokalisierung", "Region")]
+        for k, label in keys_gen:
+             val = gen.get(k)
+             if val: html += self._row(label, val, odd); odd = not odd
+
+        # Details
+        det = data.get("Details", {})
+        if det:
+            html += '\n<div class="ITSg">Details</div>\n'
+            keys_det = [("Service inbegriffen", "Inklusive"), ("Volle Vertragslaufzeit", "Laufzeit"), 
+                        ("Reaktionszeit", "Reaktionszeit"), ("Serviceverfügbarkeit", "Verfügbarkeit")]
+            for k, label in keys_det:
+                val = det.get(k)
+                if val: html += self._row(label, val, odd); odd = not odd
+        
+        html += '</div>'
+        return html
 
     def generate_generic_html(self, data):
         """ Der Standard-Generator für alle anderen Kategorien """
@@ -1101,6 +1458,12 @@ class HTMLGenerator:
         is_storage = False
         is_water = False
         is_input = False
+        is_audio = False
+        is_usb_stick = False
+        is_network = False
+        is_mousepad = False
+        is_service = False
+        is_software = False
 
         allgemein = data.get("Allgemein", {})
 
@@ -1186,17 +1549,82 @@ class HTMLGenerator:
              # Fallback Name
              prod_name_lower = data.get("_Produktname", "").lower()
              if "tastatur" in prod_name_lower or "keyboard" in prod_name_lower or "maus" in prod_name_lower or "mouse" in prod_name_lower:
-                 is_input = True                                         
-                
-        # Generator-Wahl
-        if is_ram:
+                 is_input = True 
+                 
+        # 12. Audio Check (Aggressiv)
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler and not is_monitor and not is_storage and not is_water and not is_input:
+             # Suche nach Audio-Begriffen im ganzen JSON
+             def has_audio_key(d):
+                 keys = ["Frequenzbereich", "Soundmodus", "Richtcharakteristik", "Lautsprecher", "Headset"]
+                 for k in keys:
+                     if k in str(d): return True
+                 return False
+
+             if has_audio_key(data) or "Audioausgang" in data:
+                 is_audio = True
+             
+             # Fallback Name
+             prod_name_lower = data.get("_Produktname", "").lower()
+             if "headset" in prod_name_lower or "kopfhörer" in prod_name_lower or "lautsprecher" in prod_name_lower or "soundbar" in prod_name_lower or "speaker" in prod_name_lower:
+                 is_audio = True  
+                 
+        # 13. USB-Stick Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler and not is_monitor and not is_storage and not is_water and not is_input and not is_audio:
+             # Check auf typische USB-Stick Keys
+             if "Lesegeschwindigkeit" in data.get("Speicher", {}) and "Schnittstellentyp" in data.get("Speicher", {}):
+                 is_usb_stick = True
+             
+             # Name Check (Vorsicht vor WLAN-Sticks! Wir schließen sie aus)
+             name = data.get("_Produktname", "").lower()
+             if ("usb" in name and ("stick" in name or "drive" in name or "speicher" in name or "pen" in name)) and "wlan" not in name and "wifi" not in name and "bluetooth" not in name:
+                 is_usb_stick = True 
+                 
+        # 14. Network Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler and not is_monitor and not is_storage and not is_water and not is_input and not is_audio and not is_usb_stick:
+             # Check auf Netzwerk-Keys
+             if "Data Link Protocol" in data.get("Netzwerk", {}) or "Frequenzband" in data.get("Netzwerk", {}):
+                 is_network = True
+             
+             # Name Check
+             name = data.get("_Produktname", "").lower()
+             if "wlan" in name or "wifi" in name or "bluetooth" in name or "netzwerk" in name or "network" in name or "adapter" in name or "pci express" in name:
+                 is_network = True  
+        
+        # 15. Software Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler and not is_monitor and not is_storage and not is_water and not is_input and not is_audio and not is_usb_stick and not is_network:
+             # Check auf Software-Keys
+             if "Lizenztyp" in data.get("Lizenzierung", {}) or "Plattform" in data.get("Allgemein", {}):
+                 is_software = True
+             
+             # Name Check
+             name = data.get("_Produktname", "").lower()
+             if "windows" in name or "office" in name or "kaspersky" in name or "norton" in name or "adobe" in name or "software" in name or "spiel" in name or "game" in name:
+                 is_software = True
+        
+        # 16. Mauspad Check
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler and not is_monitor and not is_storage and not is_water and not is_input and not is_audio and not is_usb_stick and not is_network and not is_software:
+             name = data.get("_Produktname", "").lower()
+             if "mauspad" in name or "mousepad" in name or "deskmat" in name:
+                 is_mousepad = True
+
+        # 17. Service Check
+        # Hier wird 'is_mousepad' verwendet, deshalb muss Block 16 zwingend davor stehen!
+        if not is_ram and not is_case and not is_gpu and not is_mb and not is_cpu and not is_psu and not is_cooler and not is_monitor and not is_storage and not is_water and not is_input and not is_audio and not is_usb_stick and not is_network and not is_software and not is_mousepad:
+             name = data.get("_Produktname", "").lower()
+             if "service" in name or "garantie" in name or "warranty" in name or "care" in name or "support" in name or "installation" in name or "bearbeitung" in name:
+                 is_service = True
+        
+        # Generator-Wahl (FINALER BLOCK)
+        if is_mb:
+            technical_block = self._generate_motherboard_html(data)
+        elif is_cpu:
+            technical_block = self._generate_cpu_html(data)
+        elif is_gpu:
+            technical_block = self._generate_gpu_html(data)
+        elif is_ram:
             technical_block = self._generate_ram_html(data)
         elif is_case:
             technical_block = self._generate_case_html(data)
-        elif is_gpu:
-            technical_block = self._generate_gpu_html(data)
-        elif is_cpu:
-            technical_block = self._generate_cpu_html(data)
         elif is_psu:
             technical_block = self._generate_psu_html(data)
         elif is_cooler:
@@ -1207,11 +1635,22 @@ class HTMLGenerator:
             technical_block = self._generate_storage_html(data)
         elif is_water:
             technical_block = self._generate_watercooling_html(data)
-        elif is_input:  
+        elif is_input:
             technical_block = self._generate_input_device_html(data)
-        elif is_mb:
-            technical_block = self._generate_mainboard_html(data)
+        elif is_audio:
+            technical_block = self._generate_audio_html(data)
+        elif is_usb_stick:
+            technical_block = self._generate_usb_stick_html(data)
+        elif is_network:
+            technical_block = self._generate_network_html(data)
+        elif is_software:
+            technical_block = self._generate_software_html(data)
+        elif is_mousepad:
+            technical_block = self._generate_mousepad_html(data)
+        elif is_service:
+            technical_block = self._generate_service_html(data)
         else:
+             # Fallback für den allerletzten Rest
             technical_block = self.generate_generic_html(data)
         # -----------------------------------------------
         

@@ -857,106 +857,6 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Funktionen": "Wippmechanik, Liegefunktion (180°)"
             }
         }
-        """  
-        
-    elif "netzwerkkarte" in cat_lower or "nic" in cat_lower or "network card" in cat_lower or "ethernet adapter" in cat_lower:
-        return base_prompt + """
-        Kategorie: Netzwerkkarte (NIC)
-        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
-
-        CRITICAL INSTRUCTIONS:
-        1. Schnittstelle: Host (PCI, PCI Express, USB) vs. Netzwerk (RJ-45, SFP).
-        2. Geschwindigkeit: 10/100/1000 Mbit/s oder höher (2.5 / 10 Gbit/s)?
-        3. Standards: IEEE Liste (z.B. 802.3, 802.3u, 802.1Q).
-        4. Features: Wake-on-LAN (WoL), Jumbo Frames, Vollduplex?
-
-        Benötigte JSON-Struktur:
-        {
-            "Allgemein": {
-                "Gerätetyp": "Netzwerkkarte",
-                "Formfaktor": "z.B. Plug-in-Karte",
-                "Farbe": "z.B. Grün / Schwarz"
-            },
-            "Anschlüsse und Schnittstellen": {
-                "Hostschnittstelle": "z.B. PCI Express x1 oder PCI",
-                "Schnittstelle": "z.B. Ethernet",
-                "Anzahl Ethernet-LAN-Anschlüsse (RJ-45)": "Anzahl (z.B. 1)",
-                "Übertragungstechnik": "Verkabelt"
-            },
-            "Netzwerk": {
-                "Maximale Datenübertragungsrate": "z.B. 1000 Mbit/s",
-                "Ethernet LAN Datentransferraten": "z.B. 10,100,1000 Mbit/s",
-                "Verkabelungstechnologie": "z.B. 10/100/1000BaseT(X)",
-                "Netzstandard": "Liste (z.B. IEEE 802.3, IEEE 802.3u, IEEE 802.1Q)",
-                "Vollduplex": "Ja / Nein",
-                "Jumbo Frames Unterstützung": "Ja / Nein",
-                "Wake-on-LAN bereit": "Ja / Nein",
-                "Unterstützung Datenflusssteuerung": "Ja / Nein"
-            },
-            "Systemanforderung": {
-                "Unterstützt Windows-Betriebssysteme": "Liste der Versionen",
-                "Unterstützte Linux-Betriebssysteme": "Ja / Nein"
-            },
-            "Betriebsbedingungen": {
-                "Temperaturbereich in Betrieb": "z.B. 0 - 40 °C",
-                "Temperaturbereich bei Lagerung": "z.B. -40 - 70 °C",
-                "Luftfeuchtigkeit in Betrieb": "z.B. 10 - 90 %"
-            },
-            "Design": {
-                "Zertifizierung": "z.B. FCC, CE",
-                "Eingebaut": "Ja",
-                "LED-Anzeigen": "Ja / Nein"
-            },
-            "Herstellergarantie": {
-                "Service und Support": "Dauer"
-            }
-        }
-        """
-        
-    elif "netzwerkadapter" in cat_lower or "wlan" in cat_lower or "wifi" in cat_lower or ("adapter" in cat_lower and "netzwerk" in cat_lower):
-        return base_prompt + """
-        Kategorie: Netzwerkadapter (WLAN / Bluetooth)
-        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
-
-        CRITICAL INSTRUCTIONS:
-        1. Typ: USB-Stick (Extern) oder PCIe-Karte (Intern)?
-        2. WLAN-Standard: Wi-Fi 6 (AX), Wi-Fi 5 (AC) oder Wi-Fi 4 (N)?
-        3. Geschwindigkeit: Max. Datenrate (z.B. 1200 Mbit/s oder 3000 Mbit/s).
-        4. Bluetooth: Version (z.B. 5.0 / 5.2) falls vorhanden.
-
-        Benötigte JSON-Struktur:
-        {
-            "Allgemein": {
-                "Gerätetyp": "Netzwerkadapter",
-                "Formfaktor": "z.B. Extern (USB-Stick) oder Intern (PCIe-Karte)",
-                "Schnittstellentyp (Bustyp)": "z.B. SuperSpeed USB 3.0 oder PCI Express"
-            },
-            "Netzwerk": {
-                "Anschlusstechnik": "Kabellos",
-                "WLAN-Standard": "z.B. Wi-Fi 6 (802.11ax)",
-                "Datenübertragungsrate": "z.B. 3000 Mbit/s",
-                "Frequenzband": "z.B. 2.4 GHz, 5 GHz",
-                "WLAN-Standards": "Liste (z.B. 802.11a/b/g/n/ac/ax)",
-                "Bluetooth-Version": "z.B. 5.0 (falls vorhanden, sonst leer)"
-            },
-            "Antenne": {
-                "Antenne": "Intern / Extern",
-                "Anzahl der Antennen": "z.B. 2"
-            },
-            "Verschiedenes": {
-                "Verschlüsselungsalgorithmus": "z.B. WPA3, WPA2",
-                "Produktzertifizierungen": "z.B. CE, FCC"
-            },
-            "Systemanforderung": {
-                "Erforderliches Betriebssystem": "Liste"
-            },
-            "Maße und Gewicht": {
-                "Breite": "cm",
-                "Tiefe": "cm",
-                "Höhe": "cm",
-                "Gewicht": "g"
-            }
-        }
         """    
         
     elif "software" in cat_lower or "windows" in cat_lower or "office" in cat_lower or "antivirus" in cat_lower or "esd" in cat_lower or "microsoft" in cat_lower or "adobe" in cat_lower:
@@ -1075,7 +975,64 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
                 "Betriebssystem": "z.B. Windows 11 Pro"
             }
         }
-        """   
+        """ 
+        
+    elif "wlan" in cat_lower or "wifi" in cat_lower or "bluetooth" in cat_lower or "netzwerk" in cat_lower or "network" in cat_lower or "adapter" in cat_lower or "nic" in cat_lower or "lan" in cat_lower or "ethernet" in cat_lower:
+        return base_prompt + """
+        Kategorie: Netzwerkadapter (WLAN / LAN / Bluetooth)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+
+        CRITICAL INSTRUCTIONS:
+        1. TYP: USB-Stick (extern) oder PCI-Express Karte (intern)?
+        2. LAN-SPECS: Wake-on-LAN? Jumbo Frames? Vollduplex? Speed (10/100/1000)?
+        3. WLAN-SPECS: WiFi 6/6E? Frequenz (2.4/5GHz)? Antennen?
+        4. SCHNITTSTELLE: PCIe x1, USB 3.0, RJ-45?
+
+        Benötigte JSON-Struktur:
+        {
+            "Allgemein": {
+                "Gerätetyp": "z.B. Netzwerkadapter",
+                "Formfaktor": "z.B. Extern (USB) oder Plug-in-Karte",
+                "Schnittstellentyp": "z.B. PCI Express / USB 2.0",
+                "Farbe": "z.B. Grün / Schwarz"
+            },
+            "Anschlüsse und Schnittstellen": {
+                "Hostschnittstelle": "z.B. PCI Express",
+                "Schnittstelle": "z.B. Ethernet / WLAN",
+                "Anzahl Ethernet-LAN-Anschlüsse (RJ-45)": "Anzahl",
+                "Übertragungstechnik": "z.B. Verkabelt / Kabellos"
+            },
+            "Netzwerk": {
+                "Anschlusstechnik": "Kabellos / Verkabelt",
+                "Maximale Datenübertragungsrate": "z.B. 1000 Mbit/s",
+                "Ethernet LAN Datentransferraten": "z.B. 10,100,1000 Mbit/s",
+                "Verkabelungstechnologie": "z.B. 10/100/1000BaseT(X)",
+                "Netzstandard": "Liste (z.B. IEEE 802.3, IEEE 802.3u)",
+                "Data Link Protocol": "z.B. Ethernet, Fast Ethernet, Gigabit Ethernet, Bluetooth 5.2, Wi-Fi 6",
+                "Vollduplex": "Ja / Nein",
+                "Jumbo Frames Unterstützung": "Ja / Nein",
+                "Wake-on-LAN bereit": "Ja / Nein",
+                "Frequenzband": "z.B. 2.4 GHz, 5 GHz (nur WLAN)",
+                "Leistungsmerkmale": "z.B. QoS, Energy Efficient Ethernet",
+                "Statusanzeiger": "z.B. Link/Aktivität"
+            },
+            "Antenne": {
+                "Antenne": "z.B. Extern abnehmbar",
+                "Antennenanzahl": "z.B. 2"
+            },
+            "Systemanforderung": {
+                "Unterstützt Windows-Betriebssysteme": "Liste",
+                "Unterstützte Linux-Betriebssysteme": "Ja / Nein"
+            },
+            "Betriebsbedingungen": {
+                "Temperaturbereich in Betrieb": "z.B. 0 - 40 °C",
+                "Temperaturbereich bei Lagerung": "z.B. -40 - 70 °C"
+            },
+             "Herstellergarantie": {
+                "Service und Support": "Dauer"
+            }
+        }
+        """      
         
     elif "sonstiges" in cat_lower or "zubehör" in cat_lower or "gadget" in cat_lower:
         return base_prompt + """
@@ -1153,32 +1110,71 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """  
         
-    elif "headset_wg36" in cat_lower:
+    elif "headset" in cat_lower or "kopfhörer" in cat_lower or "audio" in cat_lower or "lautsprecher" in cat_lower or "speaker" in cat_lower or "soundbar" in cat_lower:
         return base_prompt + """
-        Kategorie: Headset (Gaming / Office)
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Audio (Headset / Lautsprecher)
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Verbindung: Kabelgebunden (USB/Klinke) oder Wireless (Funk/Bluetooth)?
-        2. Audio: Stereo, 7.1 Surround oder Spatial Audio?
-        3. Bauform: Over-Ear (Ohrumschließend) oder On-Ear?
-        4. Mikrofon: Abnehmbar, Klappbar oder Integriert?
+        CRITICAL INSTRUCTIONS:
+        1. TYP: "Headset" oder "Lautsprecher" (Portable/Stereo)?
+        2. HEADSET-DATEN: Mikrofon (Typ, Frequenz), Treiber (50mm), Akku (Laufzeit).
+        3. LAUTSPRECHER-DATEN: RMS-Leistung (Watt), Kanäle (2.0), Verstärker (Eingebaut?).
+        4. VERBINDUNG: USB, Klinke (3.5mm), Bluetooth?
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Gerätetyp": "Headset",
-                "Modell": "Name",
-                "Farbe": "z.B. Schwarz"
+                "Produkttyp": "z.B. Headset - kabellos - USB / Tragbarer Stereo-Lautsprecher",
+                "Kopfhörer-Formfaktor": "z.B. Ohrumschließend (nur Headset)",
+                "Empfohlene Verwendung": "z.B. Spielkonsole, Computer, PC",
+                "Farbe": "z.B. Schwarz / Stahlgrau",
+                "Gewicht": "g",
+                "Breite": "cm", "Tiefe": "cm", "Höhe": "cm",
+                "Lokalisierung": "z.B. Europa"
             },
-            "Technische Daten": {
-                "Anschlusstechnik": "z.B. Wireless (2.4 GHz) / Bluetooth oder Verkabelt (USB)",
-                "Bauform": "z.B. Ohrumschließend (Over-Ear)",
-                "Soundmodus": "z.B. 7.1 Surround Sound oder Stereo"
+            "Audioausgang": {
+                "Anschlusstechnik": "z.B. Kabellos / Verkabelt",
+                "Soundmodus": "z.B. Stereo / 7.1 Channel Surround",
+                "Frequenzgang": "z.B. 20 - 20000 Hz",
+                "Impedanz": "z.B. 32 Ohm",
+                "Empfindlichkeit": "dB",
+                "Membran": "z.B. 50 mm",
+                "Eingebaute Decoder": "z.B. Dolby Atmos",
+                "Magnetmaterial": "z.B. Neodym"
             },
-            "Ausstattung": {
-                "Mikrofon": "z.B. Ja, abnehmbar",
-                "Beleuchtung": "z.B. RGB"
+            "Lautsprecher": {
+                "Lautsprechertyp": "z.B. 1-Weg / 2-Weg",
+                "Audio Kanäle": "z.B. 2.0 Kanäle",
+                "Anzahl des Antriebs": "Anzahl"
+            },
+            "Audio": {
+                "RMS-Leistung": "z.B. 1.2 W (nur Lautsprecher)"
+            },
+            "Mikrofon": {
+                "Typ": "z.B. Mikrofonbaum",
+                "Formfaktor": "z.B. Headset Mikrofon",
+                "Betriebsart des Mikrofons": "z.B. Ungerichtet / Omnidirektional",
+                "Frequenzgang": "Hz",
+                "Empfindlichkeit": "dB",
+                "Impedanz": "Ohm"
+            },
+            "Verbindungen": {
+                "Anschlusstyp": "z.B. USB / 3.5 mm",
+                "Übertragungstechnik": "z.B. Verkabelt"
+            },
+            "Stromversorgung": {
+                "Batterie": "z.B. Headset-Akku wiederaufladbar",
+                "Betriebszeit (bis zu)": "z.B. 130 Stunden",
+                "Laufzeitdetails": "Details zur Laufzeit",
+                "Energiequelle": "z.B. USB"
+            },
+            "Verschiedenes": {
+                "Zubehör im Lieferumfang": "z.B. USB-Drahtlosempfänger",
+                "Kabeldetails": "z.B. USB-C Ladekabel - 1.8 m",
+                "Zusätzliche Funktionen": "z.B. RGB-Beleuchtung"
+            },
+             "Herstellergarantie": {
+                "Service und Support": "Dauer"
             }
         }
         """ 
@@ -1242,127 +1238,102 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """  
         
-    elif "mauspad_wg39" in cat_lower:
+    elif "mauspad" in cat_lower or "mousepad" in cat_lower or "deskmat" in cat_lower or "schreibtischunterlage" in cat_lower:
         return base_prompt + """
-        Kategorie: Mauspad / Deskmat
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        Kategorie: Mauspad / Schreibtischunterlage
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Größe: Abmessungen in mm/cm (z.B. 900x400mm) oder Format (L, XL, XXL, Extended).
-        2. Material: Stoff (Textil/Soft) oder Hartplastik (Hard)?
-        3. Features: Genähte Ränder, RGB-Beleuchtung, Qi-Charging?
+        CRITICAL INSTRUCTIONS:
+        1. GRÖSSE: Maße in mm (Breite x Tiefe x Höhe). Größenklasse (XL, Extended?).
+        2. MATERIAL: Stoff (Soft) oder Hartplastik (Hard)?
+        3. FEATURES: RGB, Vernähte Ränder, Anti-Rutsch?
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Gerätetyp": "Mauspad",
-                "Modell": "Name",
-                "Farbe": "z.B. Schwarz"
-            },
-            "Technische Daten": {
-                "Abmessungen": "z.B. 900 x 400 x 4 mm",
-                "Größenklasse": "z.B. XXL / Extended",
-                "Material": "z.B. Stoff / Textil oder Hartplastik",
-                "Oberfläche": "z.B. Speed oder Control (falls angegeben)"
-            },
-            "Ausstattung": {
-                "Besonderheiten": "z.B. Anti-Rutsch-Boden, Vernähte Ränder, RGB-Beleuchtung"
-            }
-        }
-        """  
-        
-    elif "desktop_set_wg40" in cat_lower or "desktop set" in cat_lower or "tastatur-und-maus" in cat_lower or "combo" in cat_lower:
-        return base_prompt + """
-        Kategorie: Maus-Tastatur-Set (Desktop Set / Combo)
-        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
-
-        CRITICAL INSTRUCTIONS:
-        1. Layout: Deutsch (QWERTZ) oder anderes?
-        2. Verbindung: Wireless (Funk/Bluetooth) oder Kabelgebunden?
-        3. Inhalt: Details zu Maus (DPI) UND Tastatur (Switches/Layout) suchen.
-
-        Benötigte JSON-Struktur:
-        {
-            "Allgemein": {
-                "Gerätetyp": "Tastatur-und-Maus-Set",
-                "Modell": "Name",
-                "Farbe": "z.B. Pale Gray / Schwarz",
-                "Schnittstelle": "z.B. 2.4 GHz Wireless / Bluetooth"
-            },
-            "Tastatur": {
-                "Layout": "z.B. Deutsch (QWERTZ)",
-                "Tastenschalter": "z.B. CHERRY SX Schere",
-                "Besonderheiten": "z.B. Nummernblock, Handballenauflage",
-                "Batterie": "z.B. 2x AA"
-            },
-            "Maus": {
-                "Typ": "z.B. Optisch / Laser",
-                "Bewegungsauflösung": "z.B. 2400 dpi (umschaltbar)",
-                "Anzahl Tasten": "Anzahl",
-                "Batterie": "z.B. 1x AA"
+                "Produktmaterial": "z.B. Stoff, Gummi, Kunststoff",
+                "Farbe": "z.B. Schwarz",
+                "Breite": "cm", "Tiefe": "cm", "Höhe": "cm"
             },
             "Verschiedenes": {
-                "Zubehör im Lieferumfang": "z.B. Batterien, Nano-Empfänger",
-                "MTBF": "z.B. 80.000 Stunden"
+                "Besonderheiten": "z.B. Rutschfeste Unterseite, genähte Ränder, RGB-Beleuchtung",
+                "Größenklasse": "z.B. XXL / Extended"
             },
             "Herstellergarantie": {
                 "Service und Support": "Dauer"
             }
         }
-        """
+        """  
         
-    elif "service" in cat_lower or "garantie" in cat_lower or "warranty" in cat_lower or "dienstleistung" in cat_lower or "care pack" in cat_lower:
+    elif "service" in cat_lower or "garantie" in cat_lower or "warranty" in cat_lower or "dienstleistung" in cat_lower or "care pack" in cat_lower or "bearbeitung" in cat_lower:
         return base_prompt + """
         Kategorie: Service / Dienstleistung
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Art des Service: Garantieerweiterung, Montage, Prüfung, Versicherung?
-        2. Dauer: Zeitspanne (z.B. 3 Jahre, 12 Monate).
-        3. Umfang: Vor-Ort (On-Site), Bring-In, Pick-Up?
+        CRITICAL INSTRUCTIONS:
+        1. ART: Garantieerweiterung, Versicherung, Montage?
+        2. DAUER: Laufzeit (z.B. 3 Jahre).
+        3. MODUS: Vor-Ort, Bring-In, Pick-Up?
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Dienstleistungstyp": "z.B. Garantieerweiterung",
-                "Bezeichnung": "Name des Service",
-                "Dauer": "z.B. 3 Jahre (falls zutreffend)"
+                "Produkttyp": "z.B. Serviceerweiterung / Garantieverlängerung",
+                "Dienstleistungstyp": "z.B. Extended Service Agreement",
+                "Lokalisierung": "z.B. Europa / Deutschland"
             },
             "Details": {
-                "Art": "z.B. Vor-Ort-Service, Pick-Up & Return oder Next Business Day",
-                "Abdeckung": "z.B. Hardware-Reparatur"
+                "Service inbegriffen": "z.B. Arbeitszeit und Ersatzteile",
+                "Volle Vertragslaufzeit": "z.B. 3 Jahre",
+                "Reaktionszeit": "z.B. Am nächsten Arbeitstag",
+                "Serviceverfügbarkeit": "z.B. 9 Stunden am Tag / 5 Tage die Woche"
+            },
+             "Herstellergarantie": {
+                "Service und Support": "Details"
             }
         }
         """
         
-    elif "usb-stick" in cat_lower or "flash drive" in cat_lower or "thumb drive" in cat_lower:
+    elif ("usb" in cat_lower and ("stick" in cat_lower or "flash" in cat_lower or "drive" in cat_lower or "speicher" in cat_lower)) and "wlan" not in cat_lower and "wifi" not in cat_lower and "bluetooth" not in cat_lower:
         return base_prompt + """
         Kategorie: USB-Stick (Flash Drive)
-        ERSTELLE EIN HIERARCHISCHES JSON.
+        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        WICHTIG:
-        1. Kapazität: Speichergröße (z.B. 64 GB, 128 GB).
-        2. Standard: USB 2.0, 3.0, 3.1, 3.2 Gen 1?
-        3. Anschluss: USB-A, USB-C oder Dual (beides)?
+        CRITICAL INSTRUCTIONS:
+        1. STRUKTUR: Nutze exakt die Blöcke "Leistungen", "Design", "Gewicht und Abmessungen".
+        2. DATEN: Kapazität (GB), USB-Version (z.B. 3.2 Gen 1), Schnittstelle (Typ-A/C).
+        3. DESIGN: Formfaktor (z.B. Dia/Kappe), Schlüsselanhänger (Ja/Nein).
 
         Benötigte JSON-Struktur:
         {
-            "Allgemein": {
-                "Gerätetyp": "USB-Stick",
-                "Modell": "Name",
-                "Farbe": "z.B. Schwarz"
-            },
-            "Technische Daten": {
+            "Leistungen": {
                 "Kapazität": "z.B. 128 GB",
-                "Schnittstelle": "z.B. USB 3.2 Gen 1 (USB-A)",
-                "Lesegeschwindigkeit": "z.B. 100 MB/s (falls verfügbar)"
+                "Geräteschnittstelle": "z.B. USB Typ-A",
+                "USB-Version": "z.B. 3.2 Gen 1 (3.1 Gen 1)",
+                "Lesegeschwindigkeit": "MB/s (falls verfügbar)",
+                "Kompatible Betriebssysteme": "Liste (z.B. Windows 10, Linux, MacOS)"
             },
-            "Besonderheiten": {
-                "Verschlüsselung": "Ja / Nein",
-                "Bauform": "z.B. Slider / Kappe / Mini"
+            "Design": {
+                "Formfaktor": "z.B. Kappe / Schieber / Dia",
+                "Produktfarbe": "z.B. Black, Red",
+                "Schlüsselanhänger": "Ja / Nein"
+            },
+            "Lieferumfang": {
+                "Menge pro Packung": "z.B. 1 Stück(e)"
+            },
+            "Gewicht und Abmessungen": {
+                "Breite": "mm", "Tiefe": "mm", "Höhe": "mm", "Gewicht": "g"
+            },
+            "Betriebsbedingungen": {
+                "Betriebstemperatur": "z.B. 0 - 60 °C",
+                "Temperaturbereich bei Lagerung": "z.B. -20 - 85 °C"
+            },
+             "Herstellergarantie": {
+                "Service und Support": "Dauer"
             }
         }
-        """                                          
+        """                                       
              
     #Fallback, neu Kategorien werden genau hier drüber eingefügt
     else:
