@@ -13,7 +13,7 @@ from modules.html_generator import HTMLGenerator
 from modules.image_fetcher import find_product_image
 from modules.json_mapper import MarvinMapper
 
-print("🚀 ICH BIN DAS NEUE SKRIPT!")
+print("🚀 ICH BIN DAS NEUE SKRIPT (MIT QUALITY GATE)!")
 
 # --- LOGGING CONFIG ---
 if os.path.exists(LOG_FILE):
@@ -147,11 +147,24 @@ def process_dataframe(df, agent, forced_category=None, stop_event=None):
             logging.warning("\n🛑 VORGANG ABGEBROCHEN.")
             break
 
-        name = row.get('Artikelname', 'Unbekannt')
-        if not name or str(name).strip() == "":
-            continue
+        name = str(row.get('Produktname', row.get('Artikelname', 'Unbekannt'))).strip() # Robustere Namensfindung
+        
+        # --- QUALITY GATE (NEU!) 🛡️ ---
+        # Verhindert Suchen nach "Unbekannt" oder Müll, wenn keine GTIN da ist.
+        gtin = str(row.get('GTIN', row.get('Original_GTIN', ''))).replace('.0', '').strip()
+        
+        if name.lower() == 'nan': name = ""
+        if gtin.lower() == 'nan': gtin = ""
+        
+        blacklist = ["unbekannt", "unknown", "standard", "sonstiges", "n/a", "tba", "siehe artikelname", "bearbeitung", "versand"]
+        is_bad_name = (name.lower() in blacklist) or (len(name) < 3) or ("bearbeitung" in name.lower())
+        has_no_gtin = (len(gtin) < 8) # GTINs sind meist 8, 12, 13 Stellen lang
 
-        gtin = str(row.get('GTIN', '')).replace('.0', '').strip()
+        if is_bad_name and has_no_gtin:
+            logging.info(f"⏭️  SKIP ({index+1}/{total_items}): '{name}' ist ungültig & keine GTIN.")
+            continue
+        # ------------------------------
+
         art_nr = row.get('Artikelnummer', row.get('ArtNr', row.get('SKU', '')))
         
         if art_nr and str(art_nr).strip() != "":
@@ -278,8 +291,19 @@ def main(stop_event=None):
                 file_path = os.path.join(OUTPUT_FOLDER, filename)
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f: data = json.load(f)
-                    html_c = html_gen.generate_single(filename) if html_gen else ""
-                    mapper.create_json(file_path, data, html_content=html_c)
+                    
+                    # Hier wird das HTML erzeugt
+                    html_c = ""
+                    if html_gen:
+                         # Wir generieren das HTML und bekommen den PFAD zurück (oder den Inhalt, je nach Implementierung)
+                         # Deine generate_single speichert es, also lesen wir es direkt aus data oder lassen den Generator machen
+                         generated_path = html_gen.generate_single(filename)
+                         if generated_path and os.path.exists(generated_path):
+                             with open(generated_path, 'r', encoding='utf-8') as hf:
+                                 html_c = hf.read()
+                    
+                    # WICHTIG: Dateiname als ID übergeben, nicht den Pfad!
+                    mapper.create_json(filename, data, html_content=html_c)
                 except Exception as e:
                     logging.error(f"❌ Fehler Mapper {filename}: {e}")
 
