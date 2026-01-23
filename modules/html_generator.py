@@ -288,7 +288,7 @@ class HTMLGenerator:
         html += '</div>'
         return html
 #Mainboard
-    def _generate_mainboard_html(self, data):
+    def _generate_motherboard_html(self, data):
         """ Spezial-Generator für Mainboards """
         html = '<div class="ITSs">\n'
 
