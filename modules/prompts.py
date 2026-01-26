@@ -444,46 +444,62 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
 
     if "arbeitsspeicher" in cat_lower or "ram" in cat_lower or "memory" in cat_lower:
         return base_prompt + """
-        Kategorie: Arbeitsspeicher (RAM)
-        ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
+         Kategorie: Arbeitsspeicher (RAM)
+         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        CRITICAL INSTRUCTIONS (PRECISION):
-        1. Technologie: DDR4 oder DDR5? (Absolut kritisch!)
-        2. Geschwindigkeit: MHz oder MT/s (z.B. 3200 MHz, 6000 MT/s). Suche auch nach PC-Klassifizierung (z.B. PC4-25600).
-        3. Konfiguration: Kit oder Einzelmodul? (z.B. "2 x 16 GB" oder "1 x 32 GB"). Suche nach Begriffen wie "Kit of 2", "Dual Channel Kit".
-        4. Latenz: CAS Latency (CL). Suche nach Werten wie "CL16", "CL30", "C36" oder Timings wie "30-38-38".
-        5. Profile: XMP (Intel) oder EXPO (AMD)? Oder beides?
-        6. Spannung: Suche nach der Volt-Zahl (z.B. 1.35 V, 1.1 V).
+         !!! CRITICAL RULES (STRICT ADHERENCE REQUIRED) !!!
+         1. EXAKTHEIT VOR POPULARITÄT:
+         - Prüfe ZWINGEND die Herstellernummer (SKU/GTIN).
+         - Beispiel: G.Skill gibt es als CL16 und CL18. Wenn du unsicher bist, nimm die konservativeren (langsameren) Timings.
+    
+         2. PROFILE (XMP vs. EXPO) - NICHT RATEN:
+         - Schreibe "AMD EXPO" NUR, wenn "EXPO", "AMD Ready" oder "Ryzen Tuned" explizit genannt wird.
+         - Schreibe "Intel XMP" NUR, wenn "XMP" oder "Intel Ready" explizit genannt wird.
+         - Schreibe BEIDES nur, wenn das Datenblatt explizit "Dual Profile" oder beides erwähnt.
+         - Im Zweifel: Wenn "AMD Edition" im Titel steht, entferne "Intel XMP".
 
-        Benötigte JSON-Struktur:
+         3. DDR5 SPEZIALREGEL (ECC):
+         - Wenn Technologie == "DDR5", dann ist "Datenintegritätsprüfung" IMMER "On-Die ECC" (nicht "Non-ECC").
+         - Nur bei Server-RAM (Registered/Buffered) schreibe "ECC".
+
+         4. KAPAZITÄTS-FORMATIERUNG:
+         - Feld "Kapazität": NUR die Gesamtsumme (z.B. "32 GB"). KEINE Formeln wie "16GB + 16GB".
+         - Die Aufteilung kommt NUR in das Feld "Modulkonfiguration".
+
+         5. TECHNISCHE DETAILS:
+         - Spannung: Suche präzise (DDR4 oft 1.35V, DDR5 oft 1.1V, 1.25V oder 1.35V/1.4V bei OC).
+         - Timings: Versuche die Kette zu finden (z.B. 30-38-38-96).
+
+         Benötigte JSON-Struktur:
         {
-            "Allgemein": {
-                "Kapazität": "z.B. 32 GB",
-                "Erweiterungstyp": "Generisch / System-Spezifisch",
-                "Breite": "N/A",
-                "Tiefe": "N/A",
-                "Höhe": "N/A"
-            },
-            "Speicher": {
-                "Typ": "DRAM",
-                "Technologie": "z.B. DDR4 SDRAM oder DDR5 SDRAM",
-                "Formfaktor": "z.B. DIMM 288-PIN oder SO-DIMM 262-PIN (Laptop)",
-                "Geschwindigkeit": "z.B. 6000 MHz (PC5-48000)",
-                "Latenzzeiten": "z.B. CL30 (30-38-38-96)",
-                "Datenintegritätsprüfung": "z.B. Non-ECC oder ECC (On-Die)",
-                "Besonderheiten": "z.B. Intel XMP 3.0, AMD EXPO, RGB-Beleuchtung, Aluminium-Heatspreader",
-                "Modulkonfiguration": "z.B. 2 x 16 GB",
-                "Spannung": "z.B. 1.35 V"
-            },
-            "Verschiedenes": {
-                "Farbe": "z.B. Schwarz / Weiß",
-                "Produktzertifizierungen": "z.B. RoHS"
-            },
-             "Herstellergarantie": {
-                "Service und Support": "Dauer (z.B. Begrenzte lebenslange Garantie)"
-            }
+          "Allgemein": {
+            "Kapazität": "Nur Gesamtwert (z.B. '32 GB')",
+            "Erweiterungstyp": "Generisch",
+            "Breite": "N/A",
+            "Tiefe": "N/A",
+            "Höhe": "Wenn verfügbar (z.B. '34.9 mm')"
+        },
+        "Speicher": {
+            "Typ": "DRAM",
+            "Technologie": "DDR4 SDRAM oder DDR5 SDRAM",
+            "Formfaktor": "DIMM 288-PIN (Desktop) oder SO-DIMM (Laptop)",
+            "Geschwindigkeit": "Geschwindigkeit in MT/s oder MHz (z.B. '6000 MT/s')",
+            "Latenzzeiten": "CAS Latency + Timings (z.B. 'CL30 (30-36-36)')",
+            "Datenintegritätsprüfung": "Bei DDR4: 'Non-ECC', bei DDR5: 'On-Die ECC'",
+            "Besonderheiten": "Liste EXAKT auf (XMP 3.0, EXPO, RGB, Heatspreader Farbe)",
+            "Modulkonfiguration": "Anzahl x Einzelgröße (z.B. '2 x 16 GB')",
+            "Chip-Organisation": "N/A oder 'x8' / 'x16'",
+            "Spannung": "Exakter Wert (z.B. '1.35 V')"
+        },
+        "Verschiedenes": {
+            "Farbe": "Farbe des Heatspreaders",
+            "Produktzertifizierungen": "z.B. RoHS"
+        },
+         "Herstellergarantie": {
+            "Service und Support": "Dauer (z.B. Begrenzte lebenslange Garantie)"
         }
-        """
+    }
+    """
 
     elif "speicher" in cat_lower or "ssd" in cat_lower or "hdd" in cat_lower or "festplatte" in cat_lower or "hard drive" in cat_lower:
         return base_prompt + """

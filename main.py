@@ -12,6 +12,7 @@ from modules.logger import log_error
 from modules.html_generator import HTMLGenerator
 from modules.image_fetcher import find_product_image
 from modules.json_mapper import MarvinMapper
+from modules.db_connector import DBConnector
 
 print("🚀 ICH BIN DAS NEUE SKRIPT (MIT QUALITY GATE)!")
 
@@ -149,8 +150,6 @@ def process_dataframe(df, agent, forced_category=None, stop_event=None):
 
         name = str(row.get('Produktname', row.get('Artikelname', 'Unbekannt'))).strip() # Robustere Namensfindung
         
-        # --- QUALITY GATE (NEU!) 🛡️ ---
-        # Verhindert Suchen nach "Unbekannt" oder Müll, wenn keine GTIN da ist.
         gtin = str(row.get('GTIN', row.get('Original_GTIN', ''))).replace('.0', '').strip()
         
         if name.lower() == 'nan': name = ""
@@ -240,7 +239,6 @@ def main(stop_event=None):
     
     # Hilfsfunktion um zu prüfen ob es eine relevante Datei ist
     def is_data_file(f):
-        # WICHTIG: Ignoriere temporäre Excel-Lock-Dateien (starten mit ~$)
         if f.startswith("~$"): return False
         return f.lower().endswith((".csv", ".xlsx", ".xls"))
 
@@ -264,7 +262,6 @@ def main(stop_event=None):
             if not forced_cat: continue
                 
             subdir_path = os.path.join(INPUT_FOLDER, subdir)
-            # HIER WAR DER FEHLER: Wir suchen jetzt auch nach .xlsx und .xls!
             data_files = [f for f in os.listdir(subdir_path) if is_data_file(f)]
             
             for file_name in data_files:
@@ -295,14 +292,10 @@ def main(stop_event=None):
                     # Hier wird das HTML erzeugt
                     html_c = ""
                     if html_gen:
-                         # Wir generieren das HTML und bekommen den PFAD zurück (oder den Inhalt, je nach Implementierung)
-                         # Deine generate_single speichert es, also lesen wir es direkt aus data oder lassen den Generator machen
                          generated_path = html_gen.generate_single(filename)
                          if generated_path and os.path.exists(generated_path):
                              with open(generated_path, 'r', encoding='utf-8') as hf:
                                  html_c = hf.read()
-                    
-                    # WICHTIG: Dateiname als ID übergeben, nicht den Pfad!
                     mapper.create_json(filename, data, html_content=html_c)
                 except Exception as e:
                     logging.error(f"❌ Fehler Mapper {filename}: {e}")
