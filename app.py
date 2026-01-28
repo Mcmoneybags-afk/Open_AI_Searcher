@@ -95,6 +95,14 @@ class SystemtreffApp(ctk.CTk):
         self.btn_db_single = ctk.CTkButton(self.db_frame, text="⬆️ In DB laden", command=self.start_single_db_thread, fg_color="#2E8B57", hover_color="#1B5E20")
         self.btn_db_single.pack(fill="x", padx=10)
 
+        # Trennlinie
+        self.separator3 = ctk.CTkLabel(self.db_frame, text="-"*20, text_color="gray", height=10)
+        self.separator3.pack(pady=2)
+
+        # MASSEN BUTTON
+        self.btn_db_mass = ctk.CTkButton(self.db_frame, text="🚀 ALLES hochladen", command=self.start_mass_db_thread, fg_color="#D84315", hover_color="#BF360C")
+        self.btn_db_mass.pack(fill="x", padx=10, pady=5)
+
         # Status Footer
         self.status_label = ctk.CTkLabel(self.sidebar_frame, text="Status: Bereit", text_color="gray")
         self.status_label.grid(row=7, column=0, padx=20, pady=20)
@@ -117,16 +125,26 @@ class SystemtreffApp(ctk.CTk):
     def set_ui_state(self, running):
         """ Ändert Button-Zustände je nach Status """
         self.is_running = running
+        
         if running:
+            # --- ALLES SPERREN ---
             self.btn_full_run.configure(state="disabled")
             self.btn_csv_export.configure(state="disabled")
-            self.btn_db_single.configure(state="disabled") # DB Button auch sperren
+            self.btn_db_single.configure(state="disabled")
+            self.btn_db_mass.configure(state="disabled")  # <--- WICHTIG: Auch diesen Button sperren!
+            
+            # Stop-Button aktivieren
             self.btn_stop.configure(state="normal") 
             self.status_label.configure(text="Status: LÄUFT...", text_color="#66BB6A") 
+        
         else:
+            # --- ALLES WIEDER FREIGEBEN ---
             self.btn_full_run.configure(state="normal")
             self.btn_csv_export.configure(state="normal")
             self.btn_db_single.configure(state="normal")
+            self.btn_db_mass.configure(state="normal")    # <--- WICHTIG: Wieder freigeben
+            
+            # Stop-Button deaktivieren
             self.btn_stop.configure(state="disabled")
             self.status_label.configure(text="Status: Bereit / Fertig", text_color="gray")
 
@@ -159,6 +177,39 @@ class SystemtreffApp(ctk.CTk):
             return
 
         threading.Thread(target=self.run_single_db_upload, args=(art_nr,), daemon=True).start()
+
+    # --- MASSEN UPLOAD LOGIK ---
+    def start_mass_db_thread(self):
+        if self.is_running: return
+        
+        # Sicherheitsabfrage (WICHTIG!)
+        confirm = messagebox.askyesno(
+            "ACHTUNG: Massen-Upload", 
+            "Möchtest du wirklich ALLE HTML-Dateien aus dem Ordner in die LIVE-Datenbank schreiben?\n\n"
+            "⚠️ Bestehende Beschreibungen werden unwiderruflich überschrieben!\n"
+            "Hast du ein Backup gemacht?"
+        )
+        
+        if confirm:
+            threading.Thread(target=self.run_mass_db_upload, daemon=True).start()
+
+    def run_mass_db_upload(self):
+        self.set_ui_state(True)
+        print("\n--- 🚀 STARTE MASSEN-DB-UPLOAD ---\n")
+        
+        try:
+            connector = DBConnector()
+            # Wir geben 'print' mit, damit das Skript direkt ins Textfeld schreibt
+            final_msg = connector.export_all_articles(callback_log=print)
+            
+            print("\n" + final_msg)
+            messagebox.showinfo("Abschluss", final_msg)
+            
+        except Exception as e:
+            print(f"\n❌ FEHLER: {e}")
+            messagebox.showerror("Kritischer Fehler", str(e))
+        finally:
+            self.set_ui_state(False)    
 
     def run_full_process(self):
         self.set_ui_state(True)

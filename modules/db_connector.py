@@ -22,55 +22,110 @@ class DBConnector:
         except mysql.connector.Error as err:
             return None, f"Verbindungsfehler: {err}"
 
+    # --- EINZEL IMPORT ---
     def export_single_article(self, art_nr):
-        """
-        Exportiert EINE HTML-Datei in die Datenbank.
-        Rückgabe: (Success: bool, Message: str)
-        """
-        # 1. Prüfen: Gibt es die HTML-Datei?
+        """ Exportiert EINE HTML-Datei in die Datenbank. """
         filename = f"{art_nr}.html"
         file_path = os.path.join(self.html_folder, filename)
         
         if not os.path.exists(file_path):
-            return False, f"❌ Datei nicht gefunden: {filename} (Bitte erst generieren!)"
+            return False, f"❌ Datei nicht gefunden: {filename}"
 
-        # 2. HTML lesen
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 html_content = f.read()
         except Exception as e:
-            return False, f"❌ Fehler beim Lesen der Datei: {e}"
+            return False, f"❌ Fehler beim Lesen: {e}"
 
-        # 3. Datenbank Update
+        return self._write_to_db(art_nr, html_content)
+
+    # --- MASSEN IMPORT (Deine Schleife) ---
+    def export_all_articles(self, callback_log=None):
+        """ 
+        Exportiert ALLE HTML-Dateien aus dem Ordner.
+        callback_log: Eine Funktion (print), um Status an die GUI zu senden.
+        """
+        if not os.path.exists(self.html_folder):
+            return "❌ Ordner 'output_HTML' nicht gefunden!"
+
+        # Alle .html Dateien holen
+        files = [f for f in os.listdir(self.html_folder) if f.endswith('.html')]
+        
+        if not files:
+            return "⚠️ Keine HTML-Dateien zum Importieren gefunden."
+
+        if callback_log: callback_log(f"🔄 Starte Massen-Update für {len(files)} Artikel...")
+        
+        # Verbindung EINMAL aufbauen für Speed
         conn = None
         try:
             conn = mysql.connector.connect(**self.config)
             cursor = conn.cursor()
             
-            # Prüfen ob Artikel existiert
-            check_query = "SELECT cName FROM tartikel WHERE cArtNr = %s"
-            cursor.execute(check_query, (art_nr,))
-            result = cursor.fetchone()
+            success_count = 0
+            error_count = 0
             
-            if not result:
-                return False, f"⚠️ Artikelnummer '{art_nr}' nicht in DB gefunden!"
+            # --- DIE SCHLEIFE ---
+            for i, filename in enumerate(files):
+                try:
+                    # Dateiname ist Artikelnummer (z.B. "106555.html" -> "106555")
+                    art_nr = os.path.splitext(filename)[0]
+                    file_path = os.path.join(self.html_folder, filename)
+                    
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        html_content = f.read()
+                    
+                    # SQL Update
+                    # Wir prüfen erst, ob die Artikelnummer überhaupt existiert (optional, aber sauberer)
+                    # Hier machen wir direkt UPDATE, um Zeit zu sparen. rowcount zeigt uns, ob was passiert ist.
+                    update_query = "UPDATE tartikel SET cBeschreibung = %s WHERE cArtNr = %s"
+                    cursor.execute(update_query, (html_content, art_nr))
+                    
+                    if cursor.rowcount > 0:
+                        success_count += 1
+                        if callback_log: callback_log(f"  ✅ {art_nr}: Updated")
+                    else:
+                        error_count += 1
+                        if callback_log: callback_log(f"  ⚠️ {art_nr}: Artikelnummer nicht in DB gefunden")
+                    
+                    # Fortschritt alle 10 Artikel committen (speichern)
+                    if i % 10 == 0:
+                        conn.commit()
+
+                except Exception as e:
+                    error_count += 1
+                    if callback_log: callback_log(f"  ❌ Fehler bei {filename}: {e}")
+
+            # Am Ende alles final speichern
+            conn.commit()
+            cursor.close()
+            return f"🏁 Fertig! Erfolgreich: {success_count} | Fehler/Nicht gefunden: {error_count}"
+
+        except mysql.connector.Error as err:
+            return f"❌ Datenbank-Fehler: {err}"
+        finally:
+            if conn and conn.is_connected():
+                conn.close()
+
+    # Interne Hilfsfunktion für Einzel-Update
+    def _write_to_db(self, art_nr, content):
+        conn = None
+        try:
+            conn = mysql.connector.connect(**self.config)
+            cursor = conn.cursor()
             
-            # UPDATE ausführen
             update_query = "UPDATE tartikel SET cBeschreibung = %s WHERE cArtNr = %s"
-            cursor.execute(update_query, (html_content, art_nr))
+            cursor.execute(update_query, (content, art_nr))
             conn.commit()
             
             rows = cursor.rowcount
             cursor.close()
-            conn.close()
             
-            if rows > 0:
-                return True, f"✅ Erfolgreich! Artikel '{result[0]}' aktualisiert."
-            else:
-                return True, f"⚠️ Update lief durch, aber keine Änderung (Text war identisch?)."
+            if rows > 0: return True, f"✅ Artikel '{art_nr}' aktualisiert."
+            else: return False, f"⚠️ Artikel '{art_nr}' nicht in DB gefunden."
 
         except mysql.connector.Error as err:
-            return False, f"❌ SQL Fehler: {err}"
+            return False, f"SQL Fehler: {err}"
         finally:
             if conn and conn.is_connected():
                 conn.close()

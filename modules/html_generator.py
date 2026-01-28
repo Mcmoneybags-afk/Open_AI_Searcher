@@ -1417,6 +1417,43 @@ class HTMLGenerator:
         
         html += '</div>'
         return html
+    
+    def _generate_software_html(self, data):
+        """ Generiert HTML speziell für Software/Lizenzen """
+        html = '<div class="ITSs">\n'
+        
+        # Diese Kategorien wollen wir in dieser Reihenfolge ausgeben
+        target_sections = [
+            "Allgemein", 
+            "Lizenzierung", 
+            "Systemanforderungen", 
+            "Kompatibilität", 
+            "Verschiedenes"
+        ]
+
+        row_toggle = True # Für das abwechselnde Farbschema (ITSr1 / ITSr0)
+
+        for section in target_sections:
+            if section in data and isinstance(data[section], dict):
+                # Kategorie-Header (z.B. "Systemanforderungen")
+                html += f'<div class="ITSg">{section}</div>\n'
+                
+                for key, value in data[section].items():
+                    # Leere Werte überspringen
+                    if not value or str(value).lower() in ["n/a", "none"]:
+                        continue
+
+                    row_class = "ITSr1" if row_toggle else "ITSr0"
+                    
+                    html += f'<div class="{row_class}">\n'
+                    html += f'<div class="ITSn">{key}</div>\n'
+                    html += f'<div class="ITSv">{value}</div>\n'
+                    html += '</div>\n'
+                    
+                    row_toggle = not row_toggle # Umschalten für nächste Zeile
+
+        html += '</div>'
+        return html
 
     def generate_generic_html(self, data):
         """ Der Standard-Generator für alle anderen Kategorien """
@@ -1650,7 +1687,6 @@ class HTMLGenerator:
         elif is_service:
             technical_block = self._generate_service_html(data)
         else:
-             # Fallback für den allerletzten Rest
             technical_block = self.generate_generic_html(data)
         # -----------------------------------------------
         

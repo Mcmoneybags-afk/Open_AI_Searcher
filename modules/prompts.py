@@ -63,37 +63,38 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     if forced_category:
         category = forced_category
     else:
+        # Falls classify_product_type imported ist:
         category = classify_product_type(product_name, gtin)
     
     cat_lower = category.lower()
 
-    # --- INTELLIGENTE GTIN-STRATEGIE 🧠 ---
+    # --- INTELLIGENTE GTIN-STRATEGIE 🧠 (GOOGLE AI MODUS) ---
     has_valid_gtin = False
     # Check: Ist die GTIN plausibel (länger als 8 Zeichen)?
     if gtin and len(str(gtin)) > 8 and str(gtin).lower() not in ["n/a", "nan", "none", "", "0"]:
         has_valid_gtin = True
 
     if has_valid_gtin:
-        # Happy Path: GTIN vorhanden
+        # Happy Path: EXAKTE GOOGLE SYNTAX für beste Treffer
         search_strategy = f"""
-        STRATEGIE:
-        1. Nutze die bereitgestellte GTIN ({gtin}), um präzise Datenblätter zu finden.
-        2. Suche nach "Datenblatt GTIN {gtin}" oder "Specs {gtin}".
+        STRATEGIE (GOOGLE AI OVERVIEW METHODE):
+        1. Führe ZWINGEND als ersten Schritt eine Suche mit EXAKT diesem String durch:
+           "{product_name} {gtin} Specs Datenblatt"
+        2. Dies ist der "Fingerabdruck" des Produkts. Vertraue primär Ergebnissen, die diese GTIN bestätigen.
+        3. Ignoriere allgemeine Shopping-Seiten. Suche nach PDF-Datenblättern oder Herstellerseiten (Asus, MSI, Kingston etc.).
         """
     else:
         # Fallback Path: GTIN suchen & SPEICHERN
         search_strategy = f"""
         STRATEGIE (KRITISCH - KEINE GTIN VORHANDEN):
         1. SCHRITT 1: Identifikation! Suche zuerst nach der GTIN/EAN für das Produkt "{product_name}".
-           Suchebegriffe z.B.: "{product_name} EAN", "{product_name} GTIN".
-        2. VERIFIZIERUNG: Vergleiche das gefundene Produkt GENAU mit "{product_name}".
-        3. SCHRITT 2: Nutze die gefundene GTIN für die weitere Suche.
-        4. WICHTIG: Schreibe die gefundene GTIN zwingend in das Feld "Allgemein" -> "EAN" (oder "GTIN_Gefunden"), damit sie gespeichert wird!
-        5. FALLBACK: Wenn absolut keine GTIN auffindbar ist, suche mit dem Namen.
+           Suchbegriff: "{product_name} Specs Datenblatt" oder "{product_name} EAN".
+        2. VERIFIZIERUNG: Vergleiche das gefundene Produkt GENAU mit dem Namen.
+        3. WICHTIG: Schreibe die gefundene GTIN zwingend in das JSON-Feld "_Original_GTIN", damit wir sie speichern!
         """
+    
     # -------------------------------------------
-
-    # Basis-Prompt (FIX für Output Parser)
+    # Basis-Prompt (Mit Google AI Strategie & JSON Regeln)
     base_prompt = f"""
     Du bist ein technischer Hardware-Experte.
     Produkt: {product_name}
@@ -101,24 +102,21 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     
     {search_strategy}
 
-    Suche nach technischen Datenblättern.
+    Suche nach technischen Datenblättern und extrahiere Fakten.
     REGELN:
     1. Unauffindbar -> "N/A".
     2. Rate nicht.
     3. Einheiten PFLICHT (3.5 GHz).
-    4. Trenner: "¦".
-    5. FORMAT: Beende deine Antwort IMMER mit dem Satz: "Final Answer:" gefolgt von dem JSON-Codeblock.
+    4. FORMAT: Beende deine Antwort IMMER mit dem Satz: "Final Answer:" gefolgt von dem JSON-Codeblock.
        Beispiel:
        Final Answer:
        ```json
        {{ ... }}
        ```
-    6. Max 3-4 Suchen.
-    7. GTIN INTEGRATION: Wenn du eine GTIN/EAN hast, füge sie in das BEREITS BESTEHENDE "Allgemein"-Objekt ein. 
-       ERSTELLE KEINEN ZWEITEN "Allgemein"-BLOCK!
+    5. Max 3-4 Suchen.
     """
-
-    # === Dispatcher ===
+    
+    # === Dispatcher (Hier geht es dann mit den elifs weiter) ===
     
     if "cpu_kuehler" in cat_lower or "cpu-kühler" in cat_lower or "prozessor-kühler" in cat_lower:
         return base_prompt + """
@@ -328,118 +326,131 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """
 
-    elif "grafikkarte" in cat_lower or "gpu" in cat_lower or "graphics card" in cat_lower:
+    elif "grafikkarte" in cat_lower or "gpu" in cat_lower or "videokarte" in cat_lower:
         return base_prompt + """
         Kategorie: Grafikkarte (GPU)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS:
-        1. Maße: "Tiefe" ist meist die Länge der Karte (z.B. 33 cm). "Breite" ist die Dicke (Slots, z.B. 5 cm).
-        2. Leistung: Unterscheide zwischen "Erforderliche Leistungsversorgung" (Netzteil-Empfehlung, z.B. 750W) und "Leistungsaufnahme" (TBP/TGP der Karte selbst, z.B. 300W).
-        3. Kerne: Bei Nvidia "CUDA-Kerne", bei AMD "Stream Prozessoren" (oder Schader-Einheiten) zählen.
+        1. STROMANSCHLUSS (WICHTIG):
+           - NVIDIA RTX 4000er Serie: Meist "1x 16-Pin (12VHPWR)".
+           - AMD Radeon: Meist "2x 8-Pin PCIe" (AMD nutzt selten 12VHPWR!).
+           - SCHREIBE NIEMALS "ODER"! Entscheide dich basierend auf dem Modell.
+        2. MAßE-LOGIK (IT-Scope Standard):
+           - "Tiefe": Die LÄNGE der Karte (z.B. 300 mm).
+           - "Breite": Die HÖHE der Karte (vom PCIe-Slot zur Seitenwand, z.B. 130 mm).
+           - "Höhe": Die DICKE der Karte (Slot-Belegung, z.B. 50 mm / 2.5 Slots).
+        3. KERNE:
+           - Nvidia = "CUDA-Kerne".
+           - AMD = "Stream Prozessoren".
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Gerätetyp": "Grafikkarten",
-                "Bustyp": "z.B. PCI Express 4.0 x16 oder 5.0",
-                "Grafikprozessor": "Voller Name (z.B. NVIDIA GeForce RTX 4070 Ti)",
+                "Grafikprozessor": "Voller Name (z.B. NVIDIA GeForce RTX 4070 Ti SUPER)",
+                "Bustyp": "z.B. PCI Express 4.0 x16",
                 "Boost-Takt": "MHz",
-                "CUDA-Kerne": "Anzahl (nur bei Nvidia füllen, sonst weglassen oder als 'Stream Prozessoren' labeln)",
+                "Stream Prozessoren": "Anzahl (AMD) / CUDA-Kerne (Nvidia)",
                 "Max Auflösung": "z.B. 7680 x 4320",
                 "Anzahl der max. unterstützten Bildschirme": "Anzahl (z.B. 4)",
-                "Schnittstellendetails": "Liste (z.B. 3 x DisplayPort, 1 x HDMI)",
+                "Schnittstellendetails": "Liste (z.B. 3 x DisplayPort 1.4a, 1 x HDMI 2.1a)",
                 "API-Unterstützung": "z.B. DirectX 12 Ultimate, OpenGL 4.6",
-                "Besonderheiten": "Liste von Features (z.B. Dual BIOS, RGB, Backplate, Raytracing Cores)"
+                "Besonderheiten": "z.B. Dual BIOS, RGB Fusion, 0dB Technology"
             },
-            "Arbeitsspeicher": {
+            "Speicher": {
                 "Grösse": "z.B. 16 GB",
-                "Technologie": "z.B. GDDR6X SDRAM",
+                "Technologie": "z.B. GDDR6X",
                 "Speichergeschwindigkeit": "z.B. 21 Gbps",
-                "Busbreite": "z.B. 192-bit oder 256-bit"
+                "Busbreite": "z.B. 256-bit"
             },
             "Systemanforderungen": {
-                "Erfoderliche Leistungsversorgung": "Empfohlenes Netzteil in Watt (z.B. 750 W)",
-                "Zusätzliche Anforderungen": "Stromstecker (z.B. 1x 16-Pin 12VHPWR oder 2x 8-Pin)"
+                "Erforderliche Leistungsversorgung": "Empfohlenes Netzteil in Watt (z.B. 750 W)",
+                "Zusätzliche Anforderungen": "Exakter Stromstecker! (z.B. 1x 16-Pin (12VHPWR))"
             },
             "Verschiedenes": {
-                "Leistungsaufnahme im Betrieb": "Verbrauch der Karte in Watt (z.B. 285 Watt)",
-                "Zubehör im Lieferumfang": "z.B. Grafikkartenhalterung, Adapter",
-                "Breite": "Dicke der Karte in cm (z.B. 5 cm)",
-                "Tiefe": "Länge der Karte in cm (z.B. 30 cm)",
-                "Höhe": "Höhe der Karte in cm (z.B. 12 cm)",
+                "Leistungsaufnahme im Betrieb": "TGP/TBP in Watt (z.B. 285 W)",
+                "Zubehör im Lieferumfang": "Liste",
+                "Breite": "mm (PCB-Höhe)",
+                "Tiefe": "mm (Länge)",
+                "Höhe": "mm (Dicke/Slots)",
                 "Gewicht": "kg"
             },
-            "Herstellergarantie": {
-                "Service und Support": "Dauer (z.B. 3 Jahre)"
+             "Herstellergarantie": {
+                "Service und Support": "Dauer"
             }
         }
         """
 
     elif "mainboard" in cat_lower or "motherboard" in cat_lower:
-        mb_strategy = """
-        STRATEGIE:
-        1. Suche ZUERST nach der GTIN + "specs" (Findet Shops).
-        2. Wenn Details fehlen, suche nach: "Official site [Produktname] specifications" (Findet Herstellerseite).
-        3. Suche nach "[Produktname] manual pdf" (Findet exakte Header-Belegungen).
+        # Wir überschreiben die Strategie für Mainboards, weil wir das HANDBUCH brauchen!
+        mb_strategy = f"""
+        STRATEGIE (MAINBOARD SPEZIAL):
+        1. BASIS: Suche nach "{product_name} {gtin} Specs".
+        2. ENTSCHEIDEND: Suche nach "{product_name} manual pdf" oder "Handbuch download".
+           (Nur im Handbuch/Manual findest du die exakte Anzahl der internen USB-Header und Lüfter-Anschlüsse!)
+        3. FALLE VERMEIDEN: Achte auf Revisionen (Rev 1.0 vs 1.1) – nimm im Zweifel die neueste.
         """
+
+        return base_prompt + f"""
+        {mb_strategy}
         
-        return base_prompt.replace(search_strategy, mb_strategy) + """
         Kategorie: Mainboard (Motherboard)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS (ANTI-HALLUCINATION & PRECISION):
         1. SCHNITTSTELLEN-TRENNUNG (WICHTIG!): 
-           - "Schnittstellen (Rückseite)" sind NUR die Ports am I/O-Panel hinten (HDMI, DP, USB-A/C hinten).
-           - "Interne Schnittstellen" sind NUR die Pfostenstecker/Header AUF dem Board (für Front-USB, Lüfter).
-           - VERMISCHE DIESE NIEMALS! Zähle USB-Ports hinten exakt (z.B. 2x 2.0, 4x 3.2 Gen 1).
-        2. PCIe SLOTS: Fasse NICHT zusammen, wenn sie elektrisch unterschiedlich sind! 
-           Schreibe: "1x PCIe 5.0 x16, 1x PCIe 4.0 x16 (x4-Modus)" statt "2x PCIe x16".
-        3. RAM TAKT: Sei fleißig! Liste ALLE unterstützten OC-Frequenzen auf (z.B. "7200+(OC), 7000(OC)..."), nicht nur den Maximalwert.
-        4. CHIPSATZ: Achte auf Suffixe! "X670" ist NICHT "X670E". "B650" ist NICHT "B650E".
-        5. MODELL-VERWECHSLUNG: Wenn du per NAME suchst, achte peinlich genau auf Zusätze wie "WIFI", "E" (Extreme), "M" (Micro-ATX). 
-           Das "X870-F" ist NICHT das "X870E-E"!
+           - "Schnittstellen (Rückseite)" sind NUR die Ports am I/O-Panel hinten.
+           - "Interne Schnittstellen" sind NUR die Pfostenstecker/Header AUF dem Board.
+           - VERMISCHE DIESE NIEMALS!
+        2. PCIe SLOTS: Unterscheide elektrisch! "PCIe 4.0 x16 (x4 mode)" ist nicht dasselbe wie "x16".
+        3. RAM TAKT: Liste ALLE unterstützten OC-Frequenzen auf (z.B. "7200+(OC), 7000(OC)...").
+        4. CHIPSATZ: Achte auf Suffixe! "X670" != "X670E".
+        5. WIFI/LAN: Suche explizit nach der Version (Wi-Fi 6E vs Wi-Fi 7).
 
         Benötigte JSON-Struktur:
-        {
-            "Allgemein": {
+        {{
+            "Allgemein": {{
                 "Produkttyp": "z.B. Motherboard - ATX",
                 "Chipsatz": "Exakter Name (z.B. AMD X670E)",
-                "Prozessorsockel": "z.B. LGA1700 oder Socket AM5",
+                "Prozessorsockel": "z.B. Socket AM5",
                 "Kompatible Prozessoren": "z.B. Unterstützt AMD Ryzen 9000 Series",
                 "Max. Anz. Prozessoren": "1"
-            },
-            "Unterstützter RAM": {
+            }},
+            "Unterstützter RAM": {{
                 "Max. Größe": "z.B. 192 GB",
                 "Technologie": "z.B. DDR5",
-                "Bustakt": "VOLLE LISTE (z.B. 8000+(OC), ..., 4800 MHz)",
+                "Bustakt": "VOLLE LISTE (z.B. 8000+(OC)... 4800 MHz)",
                 "Besonderheiten": "z.B. Dual Channel, EXPO, XMP",
                 "Registriert oder gepuffert": "Ungepuffert"
-            },
-            "Audio": {
+            }},
+            "Audio": {{
                 "Typ": "z.B. HD Audio (8-Kanal)",
                 "Audio Codec": "z.B. Realtek ALC4080"
-            },
-            "LAN": {
+            }},
+            "LAN": {{
                 "Netzwerkschnittstellen": "z.B. 2.5 Gigabit Ethernet, Wi-Fi 7, Bluetooth 5.4"
-            },
-            "Erweiterung/Konnektivität": {
-                "Erweiterungssteckplätze": "Detaillierte Liste (z.B. 1x PCIe 5.0 x16, 1x PCIe 4.0 x16 (x4 mode))",
+            }},
+            "Erweiterung/Konnektivität": {{
+                "Erweiterungssteckplätze": "Detaillierte Liste (z.B. 1x PCIe 5.0 x16)",
                 "Speicherschnittstellen": "Liste (z.B. 4x SATA-600, 4x M.2)",
-                "Schnittstellen (Rückseite)": "EXAKTE LISTE I/O Panel (z.B. 1x HDMI, 2x USB-C, 4x USB 3.2 Type-A, 2x USB 2.0)",
-                "Interne Schnittstellen": "Header auf Board (z.B. 1x USB-C Header, 2x USB 2.0 Header, 1x Thunderbolt Header)",
+                "Schnittstellen (Rückseite)": "EXAKTE LISTE I/O Panel (z.B. 1x HDMI, 2x USB-C...)",
+                "Interne Schnittstellen": "Header auf Board (z.B. 1x USB-C Header, 2x USB 2.0 Header)",
                 "Stromanschlüsse": "z.B. 1x 24-Pin ATX, 2x 8-Pin 12V"
-            },
-            "Besonderheiten": {
+            }},
+            "Besonderheiten": {{
                 "BIOS-Typ": "z.B. AMI UEFI",
-                "Hardwarefeatures": "Liste (z.B. Q-Release, M.2 Thermal Guard, AEMP)"
-            },
-            "Verschiedenes": {
-                "Zubehör im Lieferumfang": "z.B. Wi-Fi Antenne, SATA-Kabel",
+                "Hardwarefeatures": "Liste (z.B. M.2 Thermal Guard)"
+            }},
+            "Verschiedenes": {{
+                "Zubehör im Lieferumfang": "Liste",
                 "Breite": "cm",
                 "Tiefe": "cm"
-            }
-        }
+            }},
+             "Herstellergarantie": {{
+                "Service und Support": "Dauer"
+            }}
+        }}
         """
 
     if "arbeitsspeicher" in cat_lower or "ram" in cat_lower or "memory" in cat_lower:
