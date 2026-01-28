@@ -611,52 +611,52 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """   
 
-    elif "gehäuse" in cat_lower:
+    elif "gehäuse" in cat_lower or "pc case" in cat_lower or "tower" in cat_lower:
         return base_prompt + """
         Kategorie: Gehäuse (PC Case)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
         CRITICAL INSTRUCTIONS (ANTI-HALLUCINATION):
-        1. VERPACKUNG vs. PRODUKT: Unterscheide strikt zwischen "Package Dimensions" (Verpackung) und "Product Dimensions" (Gehäuse). Nimm IMMER die kleineren Werte!
-        2. GEWICHT: Suche nach "Net Weight" (Nettogewicht). Ignoriere "Gross Weight" (Versandgewicht).
-        3. Formfaktor-Check: Ein "Micro-ATX" Gehäuse unterstützt KEIN Standard-ATX Mainboard! Prüfe das genau.
-        4. CPU-Kühler/GPU: Suche nach dem exakten mm-Wert (z.B. "Max GPU Length").
-        5. Wenn eine Info fehlt, schreibe "N/A" statt zu raten.
+        1. VERPACKUNG vs. PRODUKT: Unterscheide strikt zwischen "Package Dimensions" und "Product Dimensions". Nimm IMMER die kleineren Werte!
+        2. GEWICHT: Suche nach "Net Weight" (Nettogewicht). Ignoriere "Gross Weight".
+        3. FORMAT-CHECK: Ein "Micro-ATX" Gehäuse unterstützt KEIN Standard-ATX Mainboard!
+        4. KÜHLUNG & RADIATOREN: Suche nach unterstützten Lüftergrößen (120mm, 140mm) und Radiatorgrößen (240mm, 360mm). Schreib nicht nur "Vorne", sondern "Vorne: bis zu 3x 120mm".
+        5. MAßE-LOGIK: Bei Tower-Gehäusen ist die HÖHE (Height) meist ähnlich zur TIEFE (Depth/Length), aber die BREITE (Width) ist deutlich kleiner (meist 200-250mm).
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Formfaktor": "z.B. Midi Tower, Mini Tower, MicroATX Case",
-                "Max. Mainboard-Größe": "Der größte unterstützte Standard (z.B. Micro-ATX)",
-                "Unterstützte Motherboards": "Liste der Formate (WICHTIG: Kein ATX bei mATX-Gehäusen!)",
+                "Max. Mainboard-Größe": "Der größte unterstützte Standard (z.B. ATX, E-ATX)",
+                "Unterstützte Motherboards": "Liste der Formate (z.B. ATX, microATX, Mini-ITX)",
                 "Seitenplatte mit Fenster": "Ja / Nein",
-                "Seitliches Plattenmaterial mit Fenster": "z.B. Gehärtetes Glas (Tempered Glass)",
-                "Produktmaterial": "z.B. Stahl, Mesh",
+                "Seitliches Plattenmaterial mit Fenster": "z.B. Gehärtetes Glas (Tempered Glass), Acryl",
+                "Produktmaterial": "z.B. Stahl, ABS Kunststoff, Mesh",
                 "Farbe": "z.B. Schwarz, Weiß",
-                "Anzahl interner Einbauschächte": "Gesamtanzahl 2.5/3.5 Zoll",
-                "Kühlsystem": "Exakte Positionen (Vorne/Oben/Hinten/Unten). Beachte PSU-Position!",
+                "Anzahl interner Einbauschächte": "Detailliert! z.B. 2 x 3.5 Zoll, 3 x 2.5 Zoll (NICHT 2/2 schreiben!)",
+                "Kühlsystem": "Details zu Lüftern/Radiatoren. z.B. 'Vorne: 3x 120mm, Oben: 2x 140mm Support'",
                 "Max. Höhe des CPU-Kühlers": "mm (Exakter Wert!)",
                 "Maximale Länge Videokarte": "mm",
                 "Maximallänge der Stromversorgung": "mm",
-                "Systemgehäuse-Merkmale": "z.B. Mesh-Design, Werkzeuglose Montage"
+                "Systemgehäuse-Merkmale": "z.B. Kabelmanagement, Staubfilter, Airflow-Front"
             },
-            "Erweiterung / Konnektivität": {
-                "Erweiterungseinschübe": "Detail-Liste",
-                "Erweiterungssteckplätze": "Anzahl (z.B. 4 bei mATX, 7 bei ATX)",
-                "Schnittstellen": "Front-Panel Anschlüsse (USB-C, Audio etc.)"
+            "Erweiterung/Konnektivität": {
+                "Erweiterungseinschübe": "z.B. 2 (gesamt) / 2 (frei) x intern - 2.5 Zoll",
+                "Erweiterungssteckplätze": "Anzahl (z.B. 7)",
+                "Schnittstellen": "Exakte USB Versionen! z.B. 1x USB-C 3.2 Gen 2, 2x USB 3.0, Audio In/Out"
             },
             "Stromversorgung": {
-                "Stromversorgungsgerät": "z.B. Keine Spannungsversorgung",
-                "Spezifikationseinhaltung": "z.B. ATX"
+                "Stromversorgungsgerät": "Meist 'Ohne Netzteil'",
+                "Spezifikationseinhaltung": "z.B. ATX / PS2"
             },
             "Abmessungen und Gewicht": {
-                "Breite": "mm (Produktbreite - NICHT Karton!)",
-                "Tiefe": "mm (Produkttiefe - NICHT Karton!)",
-                "Höhe": "mm (Produkthöhe - NICHT Karton!)",
-                "Gewicht": "kg (Nettogewicht - NICHT Brutto!)"
+                "Breite": "mm",
+                "Tiefe": "mm (Länge)",
+                "Höhe": "mm",
+                "Gewicht": "kg"
             },
             "Herstellergarantie": {
-                "Service und Support": "Dauer"
+                "Service und Support": "Dauer (z.B. 3 Jahre)"
             }
         }
         """

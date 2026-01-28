@@ -14,8 +14,6 @@ from modules.image_fetcher import find_product_image
 from modules.json_mapper import MarvinMapper
 from modules.db_connector import DBConnector
 
-print("🚀 ICH BIN DAS NEUE SKRIPT (MIT QUALITY GATE)!")
-
 # --- LOGGING CONFIG ---
 if os.path.exists(LOG_FILE):
     try: os.remove(LOG_FILE)
