@@ -3,6 +3,8 @@ import sys
 import threading
 import io
 import time
+import os
+import pandas as pd
 from tkinter import messagebox
 
 # Importiere deine Module
@@ -37,6 +39,118 @@ class RedirectText(io.StringIO):
     def flush(self):
         sys.__stdout__.flush()
 
+class ArticleAdderWindow(ctk.CTkToplevel):
+    def __init__(self, parent, input_folder="input_csv"):
+        super().__init__(parent)
+        self.title("Neuen Artikel hinzufügen")
+        self.geometry("500x500")
+        self.input_folder = input_folder
+        
+        # Fenster in den Vordergrund
+        self.attributes("-topmost", True)
+        self.resizable(False, False)
+
+        # Überschrift
+        self.lbl_title = ctk.CTkLabel(self, text="Artikel zur Liste hinzufügen", font=("Arial", 18, "bold"))
+        self.lbl_title.pack(pady=20)
+
+        # 1. Kategorie Auswahl (Ordner)
+        self.lbl_cat = ctk.CTkLabel(self, text="Kategorie (Ordner):", anchor="w")
+        self.lbl_cat.pack(fill="x", padx=40, pady=(10, 0))
+        
+        self.folders = self.get_subfolders()
+        self.combo_cat = ctk.CTkComboBox(self, values=self.folders, width=300)
+        self.combo_cat.pack(pady=5)
+        if self.folders: self.combo_cat.set(self.folders[0])
+
+        # 2. Artikelnummer
+        self.entry_artnr = ctk.CTkEntry(self, placeholder_text="Artikelnummer (z.B. 106907)", width=300)
+        self.entry_artnr.pack(pady=(15, 5))
+
+        # 3. Artikelname
+        self.entry_name = ctk.CTkEntry(self, placeholder_text="Artikelname (z.B. Gigabyte B860...)", width=300)
+        self.entry_name.pack(pady=5)
+
+        # 4. GTIN
+        self.entry_gtin = ctk.CTkEntry(self, placeholder_text="GTIN / EAN (z.B. 471933...)", width=300)
+        self.entry_gtin.pack(pady=5)
+
+        # Speichern Button
+        self.btn_save = ctk.CTkButton(self, text="💾 Speichern & Hinzufügen", command=self.save_article, fg_color="#2E8B57", hover_color="#1B5E20", height=40)
+        self.btn_save.pack(pady=30)
+
+        self.lbl_status = ctk.CTkLabel(self, text="", text_color="gray")
+        self.lbl_status.pack(pady=5)
+
+    def get_subfolders(self):
+        """ Scannt den input_csv Ordner nach Unterordnern """
+        if not os.path.exists(self.input_folder):
+            return ["Kein Ordner gefunden"]
+        
+        dirs = [d for d in os.listdir(self.input_folder) if os.path.isdir(os.path.join(self.input_folder, d))]
+        dirs.sort() # Alphabetisch sortieren
+        return dirs
+
+    def save_article(self):
+        folder = self.combo_cat.get()
+        art_nr = self.entry_artnr.get().strip()
+        name = self.entry_name.get().strip()
+        gtin = self.entry_gtin.get().strip()
+
+        if not folder or not art_nr or not name:
+            self.lbl_status.configure(text="⚠️ Bitte ArtNr und Name ausfüllen!", text_color="#D32F2F")
+            return
+
+        target_dir = os.path.join(self.input_folder, folder)
+        
+        # Suche nach Excel oder CSV Dateien im Ordner
+        files = [f for f in os.listdir(target_dir) if f.lower().endswith(('.xlsx', '.xls', '.csv')) and not f.startswith("~$")]
+        
+        if not files:
+            self.lbl_status.configure(text=f"❌ Keine Datei in {folder} gefunden!", text_color="#D32F2F")
+            return
+        
+        # Wir nehmen einfach die erste gefundene Datei (meist artikel.xlsx)
+        target_file = os.path.join(target_dir, files[0])
+        ext = os.path.splitext(target_file)[1].lower()
+
+        try:
+            # 1. Datei laden
+            if ext in ['.xlsx', '.xls']:
+                df = pd.read_excel(target_file, dtype=str)
+            else:
+                df = pd.read_csv(target_file, dtype=str, sep=None, engine='python')
+
+            # 2. Neue Zeile erstellen (als DataFrame)
+            new_data = {
+                "Artikelnummer": str(art_nr),
+                "Artikelname": str(name),
+                "GTIN": str(gtin) if gtin else ""
+                # Hier könnten wir auch "Hersteller" etc. hinzufügen, wenn nötig
+            }
+            new_row_df = pd.DataFrame([new_data])
+
+            # 3. Anhängen (Concat)
+            df = pd.concat([df, new_row_df], ignore_index=True)
+
+            # 4. Speichern (ohne Index)
+            if ext in ['.xlsx', '.xls']:
+                df.to_excel(target_file, index=False)
+            else:
+                df.to_csv(target_file, index=False, sep=";", encoding='utf-8')
+
+            self.lbl_status.configure(text=f"✅ Gespeichert in: {files[0]}", text_color="#66BB6A")
+            
+            # Felder leeren für nächsten Eintrag
+            self.entry_artnr.delete(0, 'end')
+            self.entry_name.delete(0, 'end')
+            self.entry_gtin.delete(0, 'end')
+            self.entry_artnr.focus() # Fokus zurück auf ArtNr
+
+        except Exception as e:
+            self.lbl_status.configure(text=f"❌ Fehler: {str(e)}", text_color="#D32F2F")
+            print(e)
+
 class SystemtreffApp(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -56,56 +170,55 @@ class SystemtreffApp(ctk.CTk):
         # --- LINKE SIDEBAR ---
         self.sidebar_frame = ctk.CTkFrame(self, width=250, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(6, weight=1) # Spacer verschoben
+        self.sidebar_frame.grid_rowconfigure(7, weight=1) # WICHTIG: Spacer ist jetzt weiter unten (Zeile 7 statt 6)
 
-        # Logo
+        # 1. Logo (Row 0)
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="SYSTEMTREFF\nAI ENGINE", font=ctk.CTkFont(size=20, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
-        # Button: START
+        # 2. NEU: Artikel hinzufügen (Row 1)
+        self.btn_add_item = ctk.CTkButton(self.sidebar_frame, text="➕ Artikel hinzufügen", command=self.open_add_window, fg_color="#F9A825", hover_color="#FBC02D", text_color="black")
+        self.btn_add_item.grid(row=1, column=0, padx=20, pady=(0, 20)) # Etwas Abstand nach unten
+
+        # 3. Button: START (Row 2 - verschoben)
         self.btn_full_run = ctk.CTkButton(self.sidebar_frame, text="🚀 Start Komplett-Scan", command=self.start_full_run_thread)
-        self.btn_full_run.grid(row=1, column=0, padx=20, pady=10)
+        self.btn_full_run.grid(row=2, column=0, padx=20, pady=10)
 
-        # Button: ABBRECHEN (Rot)
+        # 4. Button: ABBRECHEN (Row 3 - verschoben)
         self.btn_stop = ctk.CTkButton(self.sidebar_frame, text="🛑 ABBRECHEN", command=self.stop_process, fg_color="#D32F2F", hover_color="#B71C1C", state="disabled")
-        self.btn_stop.grid(row=2, column=0, padx=20, pady=10)
+        self.btn_stop.grid(row=3, column=0, padx=20, pady=10)
 
-        # Trenner 1
+        # Trenner 1 (Row 4)
         self.separator = ctk.CTkLabel(self.sidebar_frame, text="-"*30, text_color="gray")
-        self.separator.grid(row=3, column=0, pady=5)
+        self.separator.grid(row=4, column=0, pady=5)
 
-        # Button: CSV EXPORT
+        # 5. Button: CSV EXPORT (Row 5)
         self.btn_csv_export = ctk.CTkButton(self.sidebar_frame, text="🐜 Nur CSV (JTL)", command=self.start_csv_export_thread, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"))
-        self.btn_csv_export.grid(row=4, column=0, padx=20, pady=10)
+        self.btn_csv_export.grid(row=5, column=0, padx=20, pady=10)
 
-        # Trenner 2 (für DB Bereich)
+        # Trenner 2 (Row 6)
         self.separator2 = ctk.CTkLabel(self.sidebar_frame, text="-"*30, text_color="gray")
-        self.separator2.grid(row=5, column=0, pady=5)
+        self.separator2.grid(row=6, column=0, pady=5)
 
-        # --- NEU: DATENBANK TOOLS ---
+        # --- DATENBANK TOOLS (Row 7 - Container Frame) ---
         self.db_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
-        self.db_frame.grid(row=6, column=0, padx=10, pady=5, sticky="ew")
+        self.db_frame.grid(row=7, column=0, padx=10, pady=5, sticky="ew")
 
+        # ... (Inhalt von db_frame bleibt gleich: Entry, Single Button, Mass Button) ...
         self.lbl_db = ctk.CTkLabel(self.db_frame, text="Datenbank Upload (Live)", font=ctk.CTkFont(size=12, weight="bold"))
         self.lbl_db.pack(pady=(0,5))
-
         self.entry_artnr = ctk.CTkEntry(self.db_frame, placeholder_text="ArtNr (z.B. 106328)")
         self.entry_artnr.pack(fill="x", pady=(0, 5), padx=10)
-
         self.btn_db_single = ctk.CTkButton(self.db_frame, text="⬆️ In DB laden", command=self.start_single_db_thread, fg_color="#2E8B57", hover_color="#1B5E20")
         self.btn_db_single.pack(fill="x", padx=10)
-
-        # Trennlinie
         self.separator3 = ctk.CTkLabel(self.db_frame, text="-"*20, text_color="gray", height=10)
         self.separator3.pack(pady=2)
-
-        # MASSEN BUTTON
         self.btn_db_mass = ctk.CTkButton(self.db_frame, text="🚀 ALLES hochladen", command=self.start_mass_db_thread, fg_color="#D84315", hover_color="#BF360C")
         self.btn_db_mass.pack(fill="x", padx=10, pady=5)
 
-        # Status Footer
+        # Status Footer (Row 8)
         self.status_label = ctk.CTkLabel(self.sidebar_frame, text="Status: Bereit", text_color="gray")
-        self.status_label.grid(row=7, column=0, padx=20, pady=20)
+        self.status_label.grid(row=8, column=0, padx=20, pady=20)
 
         # --- RECHTER BEREICH (Logs) ---
         self.right_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -136,6 +249,8 @@ class SystemtreffApp(ctk.CTk):
             # Stop-Button aktivieren
             self.btn_stop.configure(state="normal") 
             self.status_label.configure(text="Status: LÄUFT...", text_color="#66BB6A") 
+            
+            self.btn_add_item.configure(state="disabled")
         
         else:
             # --- ALLES WIEDER FREIGEBEN ---
@@ -147,6 +262,8 @@ class SystemtreffApp(ctk.CTk):
             # Stop-Button deaktivieren
             self.btn_stop.configure(state="disabled")
             self.status_label.configure(text="Status: Bereit / Fertig", text_color="gray")
+
+            self.btn_add_item.configure(state="normal")
 
     def stop_process(self):
         if self.is_running:
@@ -255,6 +372,14 @@ class SystemtreffApp(ctk.CTk):
             print(f"\n❌ UNERWARTETER FEHLER: {e}")
         finally:
             self.set_ui_state(False)
+
+    def open_add_window(self):
+        """ Öffnet das Fenster zum Hinzufügen """
+        if self.is_running:
+            messagebox.showwarning("Wartezeit", "Bitte warte, bis der aktuelle Scan beendet ist.")
+            return
+        
+        ArticleAdderWindow(self)        
 
 if __name__ == "__main__":
     app = SystemtreffApp()

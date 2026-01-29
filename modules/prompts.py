@@ -116,54 +116,60 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
     5. Max 3-4 Suchen.
     """
     
-    # === Dispatcher (Hier geht es dann mit den elifs weiter) ===
+    # === CPU-Kühler ===
     
-    if "cpu_kuehler" in cat_lower or "cpu-kühler" in cat_lower or "prozessor-kühler" in cat_lower:
+    if any(x in cat_lower for x in ["cpu_kuehler", "cpu-kühler", "prozessor-kühler", "luftkühlung"]):
         return base_prompt + """
-        Kategorie: Prozessor-Kühler (CPU Cooler)
+        Kategorie: Prozessor-Kühler (CPU Cooler / Air Cooler)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        CRITICAL INSTRUCTIONS:
-        1. KOMPATIBILITÄT: Das ist das Wichtigste! Gib eine SAUBERE LISTE (Array) aller Sockel zurück.
-           Beispiel: ["LGA1700", "AM5", "AM4", "LGA1200", "LGA115x"].
-        2. MAßE: Die Gesamthöhe (mit Lüfter!) ist entscheidend für Gehäuse.
-        3. LÜFTER-SPECS: Suche nach Luftdruck (mmH2O), Luftstrom (CFM/m³/h) und Lautstärke.
-        4. STROM: Versuche Nennspannung (V), Nennstrom (A) und Verbrauch (W) zu finden.
+        !!! CRITICAL INSTRUCTIONS !!!
+        1. MAßE (WICHTIG):
+           - Suche nach "Product Dimensions" oder "Heatsink Dimensions".
+           - IGNORIERE "Package Dimensions", "Verpackung" oder "Transportabmessungen"!
+           - Ein Tower-Kühler ist fast immer HÖHER als BREIT (z.B. Höhe ca. 150-165mm).
+           - Wenn du Maße wie "11cm Höhe" für einen Tower findest -> Das ist der Karton! Suche weiter.
+        
+        2. LÜFTER-SPECS: 
+           - Achte genau auf das Modell! (Arctic nutzt oft P12 PWM PST).
+           - Wenn CFM/Druck nicht im Text stehen, schreibe "N/A". RATE NICHT! (50.18 CFM ist oft falsch!).
+        
+        3. STROM: Versuche Nennspannung (V), Nennstrom (A) und Verbrauch (W) zu finden.
 
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
-                "Produkttyp": "z.B. Prozessor-Luftkühler",
+                "Produkttyp": "Prozessor-Luftkühler",
                 "Packungsinhalt": "z.B. Wärmeleitpaste, Montagekit",
-                "Breite": "cm",
-                "Tiefe": "cm",
-                "Höhe": "cm (Wichtig!)",
-                "Gewicht": "g oder kg",
+                "Breite": "cm (Produkt, NICHT Karton)",
+                "Tiefe": "cm (Produkt, NICHT Karton)",
+                "Höhe": "cm (Produkt, NICHT Karton - meist >15cm)",
+                "Gewicht": "kg (Nettogewicht)",
                 "Farbe": "z.B. Schwarz / Weiß"
             },
             "Kühlkörper und Lüfter": {
-                "Kompatibel mit": ["Sockel A", "Sockel B"],
+                "Kompatibel mit": ["LGA1700", "AM5"],
                 "Kühlermaterial": "z.B. Aluminium und Kupfer",
                 "Lüfterdurchmesser": "z.B. 120 mm",
-                "Gebläsehöhe": "Dicke des Lüfters (z.B. 25 mm)",
-                "Lüfterlager": "z.B. Hydro Bearing oder Fluid Dynamic Bearing",
-                "Drehgeschwindigkeit": "z.B. 500-1800 U/min",
-                "Luftstrom": "z.B. 78 CFM",
-                "Luftdruck": "z.B. 2.7 mm",
-                "Geräuschpegel": "z.B. 18 - 30 dBA",
+                "Gebläsehöhe": "z.B. 25 mm",
+                "Lüfterlager": "z.B. Fluid Dynamic Bearing",
+                "Drehgeschwindigkeit": "z.B. 200-2000 U/min",
+                "Luftstrom": "Exakter Wert oder N/A (z.B. 48.8 CFM)",
+                "Luftdruck": "Exakter Wert oder N/A (z.B. 1.85 mmH2O)",
+                "Geräuschpegel": "z.B. 0.3 Sone oder dBA",
                 "Netzanschluss": "z.B. PWM, 4-polig",
                 "Nennspannung": "12 V",
-                "Nennstrom": "A (z.B. 0.2 A)",
-                "Energieverbrauch": "Watt (z.B. 2.4 W)",
-                "Merkmale": "z.B. 4 Heatpipes, Direct Contact Technology, RGB"
+                "Nennstrom": "A (z.B. 0.11 A)",
+                "Energieverbrauch": "Watt (z.B. 1.32 W)",
+                "Merkmale": "z.B. 4 Heatpipes, Direct Contact, RGB"
             },
             "Verschiedenes": {
-                "MTBF": "Lebensdauer (z.B. 60.000 Stunden)",
+                "MTBF": "Lebensdauer",
                 "Montagekit": "Mitgeliefert",
                 "Kennzeichnung": "z.B. CE, RoHS"
             },
             "Herstellergarantie": {
-                "Service und Support": "Dauer (z.B. 2 Jahre)"
+                "Service und Support": "Dauer"
             }
         }
         """
@@ -924,48 +930,58 @@ def get_prompt_by_category(product_name, gtin, forced_category=None):
         }
         """  
         
-    elif "wasserkühlung" in cat_lower or "water cooling" in cat_lower or "aio" in cat_lower or "liquid cooler" in cat_lower or "liquid" in cat_lower:
+    
+    # Wasserkühlung
+    elif any(x in cat_lower for x in ["wasserkühlung", "water", "aio", "liquid", "kühlung"]) or \
+         any(x in product_name.lower() for x in ["pure loop", "liquid", "aio ", "water cooler", "wasserkühlung", "ice", "kraken", "ryujin", "mag coreliquid"]):
+        
         return base_prompt + """
         Kategorie: Wasserkühlung (AiO / Liquid Cooler)
         ERSTELLE EIN HIERARCHISCHES JSON (IT-Scope Datenblatt Style).
 
-        CRITICAL INSTRUCTIONS:
-        1. RADIATOR: Maße sind kritisch! Nutze Key "Kühlerabmessungen" (z.B. 394 x 120 x 27 mm).
-        2. LÜFTER: Anzahl (Key: "Gebläseanzahl").
-        3. KOMPATIBILITÄT: Liste der Sockel als ARRAY ["LGA1700", "AM5"].
-        4. CPU-FAMILIEN: Liste unterstützte Serien unter "Prozessorkompatibilität" (z.B. Core i9, Ryzen).
-
+        !!! CRITICAL INSTRUCTIONS !!!
+        1. KEIN RAM!: Das ist KEIN Arbeitsspeicher. Ignoriere "Speicher" oder "Latenz".
+        2. RADIATOR-MAßE: Suche nach den Maßen des RADIATORS (OHNE LÜFTER). Die Dicke ist meist 27mm, 30mm oder 38mm (NICHT 52mm oder 55mm!).
+        3. DETAILS: Suche gezielt nach "Luftstrom" (CFM/m³h), "Luftdruck" (mmH2O) und "Anschlüssen" (PWM/ARGB).
+        4. MATERIAL: Unterscheide Kupfer (Kühlblock) und Aluminium (Radiator) sowie Schlauchmaterial.
+        
         Benötigte JSON-Struktur:
         {
             "Allgemein": {
                 "Produkttyp": "Prozessor-Flüssigkeitskühlsystem",
-                "Gewicht": "g oder kg",
-                "Farbe": "z.B. Schwarz",
+                "Produktmaterial": "z.B. Ethylen-Propylen-Kautschuk (EPDM)",
+                "Packungsinhalt": "z.B. Wärmeleitpaste, Schrauben",
                 "Breite": "cm (Radiator)",
-                "Tiefe": "cm",
-                "Höhe": "cm"
+                "Tiefe": "cm (Radiator)",
+                "Höhe": "cm (Radiator)",
+                "Gewicht": "kg",
+                "Farbe": "z.B. Weiß"
             },
             "Kühlkörper und Lüfter": {
-                "Kompatibel mit": ["Sockel A", "Sockel B"],
-                "Prozessorkompatibilität": "Liste (z.B. Core i9, Core i7, Ryzen)",
+                "Kompatibel mit": "Liste der Sockel (z.B. LGA1700, LGA1851, AM5)",
+                "Prozessorkompatibilität": "Liste (z.B. Core i9, Ryzen)",
                 "Kühlermaterial": "z.B. Kupfer",
                 "Radiatormaterial": "z.B. Aluminium",
-                "Kühlerabmessungen": "z.B. 276 mm x 120 mm x 27 mm",
-                "Gebläseanzahl": "z.B. 2",
+                "Kühlerabmessungen": "Exakte mm (z.B. 277 x 120 x 27 mm)",
+                "Gebläseanzahl": "z.B. 2 oder 3",
                 "Lüfterdurchmesser": "z.B. 120 mm",
                 "Gebläsehöhe": "z.B. 25 mm",
-                "Lüfterlager": "z.B. Magnetisches Kuppellager",
-                "Drehgeschwindigkeit": "z.B. 300 - 2100 U/min",
-                "Luftstrom": "z.B. 10.4-73.5 cfm",
-                "Luftdruck": "z.B. 0.12-4.33 mm",
-                "Geräuschpegel": "z.B. 10 - 36 dBA",
-                "Netzanschluss": "z.B. PWM, 4-polig",
-                "Merkmale": "z.B. RGB-Lüfter, Gummischläuche"
+                "Lüfterlager": "z.B. Rifle Bearing oder FDB",
+                "Drehgeschwindigkeit": "z.B. 500-2000 U/min",
+                "Luftstrom": "z.B. 103.3 m³/h (60.78 CFM)",
+                "Luftdruck": "z.B. 2.25 mmH2O",
+                "Geräuschpegel": "z.B. 30 dBA",
+                "Netzanschluss": "z.B. PWM, 4-polig, 3-poliger ARGB",
+                "Nennstrom": "z.B. 0.15 A",
+                "Energieverbrauch": "z.B. 1.8 W",
+                "Kabellänge": "z.B. 45 cm",
+                "Merkmale": "z.B. ARGB Gen 2, PWM-Unterstützung"
             },
             "Verschiedenes": {
                 "Montagekit": "Mitgeliefert",
-                "Leistungsmerkmale": "z.B. Corsair iCUE",
-                "Zubehör im Lieferumfang": "Liste"
+                "Leistungsmerkmale": "z.B. Robust, Software-Steuerung",
+                "Zubehör im Lieferumfang": "Liste",
+                "Kennzeichnung": "z.B. DisplayPort 2.1b"
             },
             "Herstellergarantie": {
                 "Service und Support": "Dauer"

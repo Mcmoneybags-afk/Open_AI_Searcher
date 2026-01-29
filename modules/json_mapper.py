@@ -8,26 +8,32 @@ class MarvinMapper:
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
 
+    def safe_str(self, val):
+        """Macht jeden Wert sicher zum String"""
+        if val is None: return ""
+        if isinstance(val, (list, dict)): return json.dumps(val, ensure_ascii=False)
+        return str(val).strip()
+
     def extract_number(self, text):
         """Holt die erste Ganzzahl (Integer) aus einem String"""
-        if not text or text == "N/A": return 0
-        clean_text = str(text).replace('.', '').replace(',', '.')
+        if not text or str(text) == "N/A": return 0
+        clean_text = self.safe_str(text).replace('.', '').replace(',', '.')
         match = re.search(r'(\d+)', clean_text)
         return int(match.group(1)) if match else 0
 
     def extract_float(self, text):
-        """Holt eine Kommazahl (Float) aus einem String (z.B. '3.2 GHz' -> 3.2)"""
-        if not text or text == "N/A": return 0.0
-        # Ersetze Komma durch Punkt für Python
-        clean_text = str(text).replace(',', '.')
+        """Holt eine Kommazahl (Float) aus einem String"""
+        if not text or str(text) == "N/A": return 0.0
+        clean_text = self.safe_str(text).replace(',', '.')
         match = re.search(r'(\d+\.\d+|\d+)', clean_text)
         return float(match.group(1)) if match else 0.0
 
     def clean_brand_name(self, full_name, remove_list):
         """Bereinigt den Namen"""
-        clean = full_name
+        clean = self.safe_str(full_name)
         for item in remove_list:
             if item:
+                # Escape Special Chars um Regex-Fehler zu vermeiden
                 clean = re.sub(fr'\b{re.escape(str(item))}\b', '', clean, flags=re.IGNORECASE)
         
         patterns = [r'- Kit -', r'\bKit\b', r'^\W+', r'\W+$', r'\s+GB\s+', r'\s+MHz\s+', r'Prozessor']
@@ -36,33 +42,28 @@ class MarvinMapper:
         return " ".join(clean.split())
     
     def _extract_value_with_unit(self, text, unit_regex):
-        """
-        Sucht gezielt nach einer Zahl, die VOR einer bestimmten Einheit steht.
-        """
         if not text: return 0.0
         pattern = fr'(\d+([.,]\d+)?)\s*({unit_regex})'
-        match = re.search(pattern, str(text), re.IGNORECASE)
+        match = re.search(pattern, self.safe_str(text), re.IGNORECASE)
         if match:
             val_str = match.group(1).replace(',', '.')
             return float(val_str)
         return 0.0
     
-    def clean_value(self, value):
-        """Macht aus Listen Strings und entfernt None/N/A"""
-        if value is None:
-            return ""
-        if isinstance(value, list):
-            return ", ".join(str(v) for v in value)
-        if str(value).lower() in ["n/a", "unknown", "none"]:
-            return ""
-        return str(value).strip()
+    def get_val_anywhere(self, data, keys_to_search, json_key):
+        """Sucht einen Key in mehreren JSON-Bereichen (z.B. Technische Daten ODER Leistungen)"""
+        for area in keys_to_search:
+            block = data.get(area, {})
+            if block and json_key in block:
+                return str(block[json_key]).strip()
+        return ""
 
     # ==========================================
     # 🐏 RAM MAPPER 
     # ==========================================
     def map_ram(self, data, html_content=""):
         allgemein = data.get("Allgemein", {})
-        speicher = data.get("Arbeitsspeicher", {})
+        speicher = data.get("Arbeitsspeicher", {}) or data.get("Speicher", {}) # Fallback
         p_name = data.get("Produktname", "")
 
         kap = allgemein.get("Kapazität", "0")
@@ -74,11 +75,11 @@ class MarvinMapper:
         clock = self.extract_number(takt)
         cl = self.extract_number(lat)
         
-        is_ddr5 = "DDR5" in typ.upper()
+        is_ddr5 = "DDR5" in self.safe_str(typ).upper()
         mem_type = "DDR5" if is_ddr5 else "DDR4"
         
         slots = 1
-        match = re.search(r'(\d+)\s*x', kap)
+        match = re.search(r'(\d+)\s*x', self.safe_str(kap))
         if match: slots = int(match.group(1))
 
         brand_clean = self.clean_brand_name(p_name, [str(mem_size)+"GB", mem_type, "CL"+str(cl)])
@@ -102,20 +103,16 @@ class MarvinMapper:
     # 🧠 CPU MAPPER 
     # ==========================================
     def map_cpu(self, data, html_content=""):
-        """Mapping für Warengruppe 7 (AMD) & 8 (Intel) - Final V2"""
         allg = data.get("Allgemein", {})
         cpu = data.get("Prozessor", {})
         mem = data.get("Speicher-Controller", {})
         
         p_name = data.get("Produktname", data.get("_Produktname", ""))
         
-        # 1. Hersteller Bestimmen
-        is_intel = "INTEL" in p_name.upper() or "CORE" in allg.get("Serie", "").upper()
+        is_intel = "INTEL" in str(p_name).upper() or "CORE" in str(allg.get("Serie", "")).upper()
         k_warengruppe = 8 if is_intel else 7
         
-        # 2. Werte extrahieren
-        sockel_raw = cpu.get("Sockel", "")
-        # Sockel-Bereinigung für JTL Werteliste
+        sockel_raw = self.safe_str(cpu.get("Sockel", ""))
         sockel_clean = sockel_raw
         if "1700" in sockel_raw: sockel_clean = "LGA1700"
         elif "1851" in sockel_raw: sockel_clean = "LGA1851"
@@ -130,9 +127,8 @@ class MarvinMapper:
         
         p_cores = self.extract_number(cpu.get("P-Cores (Anzahl)", "0"))
         e_cores = self.extract_number(cpu.get("E-Cores (Anzahl)", "0"))
-        if p_cores == 0: p_cores = cores_total # Fallback für AMD
+        if p_cores == 0: p_cores = cores_total
 
-        # Floats benutzen (3.2 statt 3200)
         clock_base = self.extract_float(cpu.get("Taktfrequenz Basis", "0"))
         clock_turbo = self.extract_float(cpu.get("Taktfrequenz Turbo", "0"))
         
@@ -147,41 +143,34 @@ class MarvinMapper:
         tdp_max = self.extract_number(cpu.get("TDP (Max/Turbo)", "0"))
         if tdp_max == 0: tdp_max = tdp
 
-        # Chipsatz Fallback (WICHTIG für Konfigurator!)
         chipsatz_komp = cpu.get("Chipsatz-Kompatibilität", "N/A")
         if chipsatz_komp == "N/A" or not chipsatz_komp:
-            # Wenn leer, nimm den Sockel als "Chipsatz-Gruppe" an
             chipsatz_komp = sockel_clean
 
-        # Shortname Generierung
-        modell = allg.get("Modell", "").replace("Prozessor", "").strip()
+        modell = str(allg.get("Modell", "")).replace("Prozessor", "").strip()
         serie = allg.get("Serie", "")
         short_name = f"{serie} {modell} {cores_total}-Core"
         if is_intel and e_cores > 0:
             short_name += f" ({p_cores}P+{e_cores}E)"
         
-        # 3. Das finale JSON bauen
         attributes = {
             "shortNameLang": short_name,
             "codename": codename,
             "socket": sockel_clean,
             "coreCount": p_cores,
             "threads": threads,
-            "clockSpeed": clock_base,   
-            "clockTurbo": clock_turbo,  
+            "clockSpeed": clock_base,    
+            "clockTurbo": clock_turbo,   
             "tdp": tdp,
             "tdpTurbo": tdp_max,
             "tdp_max": tdp_max,
             "ddr5ClockSpeed": ddr5_speed,
             "ddr4ClockSpeed": ddr4_speed,
             "memSizeMax": max_ram_gb,
-            
-            # Abhängigkeiten
             "mainboard_cpu_chipsatz": chipsatz_komp,
             "konfiggruppen_typ": "Prozessor"
         }
 
-        # Nur für Intel (WG 8) die E-Core Felder
         if is_intel:
             attributes.update({
                 "coreCountEff": e_cores,
@@ -195,62 +184,42 @@ class MarvinMapper:
         }
         
     def map_gpu(self, data, html_content=""):
-        """Mapping für Warengruppe 4: Grafikkarten - Final V2"""
         allg = data.get("Allgemein", {})
         mem = data.get("Arbeitsspeicher", {})
         sys = data.get("Systemanforderungen", {})
         dims = data.get("Abmessungen und Gewicht", {})
         p_name = data.get("Produktname", data.get("_Produktname", ""))
 
-        # --- Werte extrahieren ---
-        
-        # Chipsatz & Hersteller (Werteliste)
-        hersteller_raw = allg.get("Chipsatz-Hersteller", "")
-        # Mapping auf JTL Liste (AMD|Intel|Nvidia)
+        hersteller_raw = self.safe_str(allg.get("Chipsatz-Hersteller", ""))
         chipset_man = "Nvidia" if "NVIDIA" in hersteller_raw.upper() else ("AMD" if "AMD" in hersteller_raw.upper() else "Intel")
         
         chip = allg.get("Grafikprozessor", "")
-        
-        # Speicher
         vram_gb = self.extract_number(mem.get("Grösse", "0"))
-        mem_tech_raw = mem.get("Technologie", "")
-        # Mapping auf Otto Liste (-1|GDDR3|GDDR4|GDDR5|GDDR6|GDDR6X|GDDR7|shared-memory)
+        mem_tech_raw = self.safe_str(mem.get("Technologie", "")).upper()
+        
         mem_tech = "-1"
-        if "GDDR7" in mem_tech_raw.upper(): mem_tech = "GDDR7"
-        elif "GDDR6X" in mem_tech_raw.upper(): mem_tech = "GDDR6X"
-        elif "GDDR6" in mem_tech_raw.upper(): mem_tech = "GDDR6"
-        elif "GDDR5" in mem_tech_raw.upper(): mem_tech = "GDDR5"
+        if "GDDR7" in mem_tech_raw: mem_tech = "GDDR7"
+        elif "GDDR6X" in mem_tech_raw: mem_tech = "GDDR6X"
+        elif "GDDR6" in mem_tech_raw: mem_tech = "GDDR6"
+        elif "GDDR5" in mem_tech_raw: mem_tech = "GDDR5"
         
-        # Strom / Watt (Erweiterte Suche!)
-        psu_req = self.extract_number(sys.get("Erforderliche Leistungsversorgung", "0")) # Empfohlenes Netzteil
+        psu_req = self.extract_number(sys.get("Erforderliche Leistungsversorgung", "0"))
         
-        # Versuch 1: TDP Feld
         tdp = self.extract_number(sys.get("Stromverbrauch (TDP)", "0"))
-        # Versuch 2: Leistungsaufnahme
-        if tdp == 0:
-             tdp = self.extract_number(sys.get("Leistungsaufnahme", "0"))
-        # Versuch 3: TGP (Total Graphics Power)
-        if tdp == 0:
-             tdp = self.extract_number(sys.get("TGP", "0"))
+        if tdp == 0: tdp = self.extract_number(sys.get("Leistungsaufnahme", "0"))
+        if tdp == 0: tdp = self.extract_number(sys.get("TGP", "0"))
         
-        # Abmessungen (JTL will mm)
         length = self.extract_number(dims.get("Tiefe", "0"))
         width = self.extract_number(dims.get("Breite", "0"))
         height = self.extract_number(dims.get("Höhe", "0"))
         
-        # Safety Check: Wenn Länge < 50 (z.B. 30 cm statt 300 mm), mal 10 nehmen
         if length < 50 and length > 0: length *= 10
         if width < 50 and width > 0: width *= 10
         if height < 50 and height > 0: height *= 10
 
-        # Stromstecker (String)
         connectors = sys.get("Zusätzliche Anforderungen", "")
+        dx_val = "12 Ultimate" if "12" in self.safe_str(allg.get("API-Unterstützung", "")) else "12"
 
-        # DX Version
-        dx_val = "12" # Standard heute
-        if "12" in allg.get("API-Unterstützung", ""): dx_val = "12 Ultimate"
-
-        # Shortname Generierung
         brand_clean = self.clean_brand_name(p_name, [chip, str(vram_gb)+"GB", "NVIDIA", "AMD", "GeForce", "Radeon"])
         short_name = f"{vram_gb}GB {chipset_man} {chip} {brand_clean}"
 
@@ -274,50 +243,42 @@ class MarvinMapper:
         }  
 
     def map_mainboard(self, data, html_content=""):
-        """Mapping für Warengruppe 5: Mainboards (MSI/Pumpen/RGB Fix)"""
         allg = data.get("Allgemein", {})
         ram = data.get("Unterstützter RAM", {})
-        conn = data.get("Erweiterung / Konnektivität", {})
+        conn = data.get("Erweiterung / Konnektivität", {}) or data.get("Erweiterung/Konnektivität", {})
         audio = data.get("Audio", {})
         lan = data.get("LAN", {})
         specials = data.get("Besonderheiten", {})
         p_name = data.get("Produktname", data.get("_Produktname", ""))
 
-        # --- Erweiterte Zähl-Funktion ---
         def count_in_string(text, keywords):
-            if not text or text == "N/A": return 0
+            if not text or str(text) == "N/A": return 0
             count = 0
-            # Splitte am Trenner '¦', Komma, Zeilenumbruch oder " + "
             parts = re.split(r'[¦,\n\+]| plus ', str(text), flags=re.IGNORECASE)
             for part in parts:
                 part = part.strip()
                 if any(k.lower() in part.lower() for k in keywords):
-                    # Versuche Zahl am Anfang zu finden ("2 x USB", "4x SATA")
                     match = re.search(r'^(\d+)\s*[xX]', part)
-                    if match:
-                        count += int(match.group(1))
-                    else:
-                        count += 1 
+                    if match: count += int(match.group(1))
+                    else: count += 1 
             return count
 
-        # 1. Basis-Daten
-        sockel_raw = allg.get("Prozessorsockel", "")
+        sockel_raw = self.safe_str(allg.get("Prozessorsockel", ""))
         sockel = sockel_raw
         if "AM5" in sockel_raw.upper(): sockel = "AM5"
         elif "AM4" in sockel_raw.upper(): sockel = "AM4"
         elif "1700" in sockel_raw: sockel = "LGA1700"
         elif "1851" in sockel_raw: sockel = "LGA1851"
         
-        chipsatz = allg.get("Chipsatz", "").replace("AMD", "").replace("Intel", "").strip()
+        chipsatz = self.safe_str(allg.get("Chipsatz", "")).replace("AMD", "").replace("Intel", "").strip()
         
-        formfaktor_raw = allg.get("Produkttyp", "")
+        formfaktor_raw = self.safe_str(allg.get("Produkttyp", ""))
         formfaktor = "ATX"
         if "micro" in formfaktor_raw.lower() or "mATX" in formfaktor_raw: formfaktor = "mATX"
         elif "mini-itx" in formfaktor_raw.lower() or "m-itx" in formfaktor_raw.lower(): formfaktor = "ITX"
         elif "e-atx" in formfaktor_raw.lower(): formfaktor = "E-ATX"
 
-        # 2. RAM
-        mem_tech = ram.get("Technologie", "DDR4")
+        mem_tech = self.safe_str(ram.get("Technologie", "DDR4"))
         if "DDR5" in mem_tech.upper(): mem_tech = "DDR5"
         elif "DDR4" in mem_tech.upper(): mem_tech = "DDR4"
         
@@ -328,7 +289,7 @@ class MarvinMapper:
         
         mem_max = self.extract_number(ram.get("Max. Größe", "0"))
         
-        bustakt_str = ram.get("Bustakt", "0")
+        bustakt_str = self.safe_str(ram.get("Bustakt", "0"))
         all_speeds = re.findall(r'(\d{4})', bustakt_str)
         max_speed = 0
         if all_speeds: max_speed = max([int(s) for s in all_speeds])
@@ -336,46 +297,37 @@ class MarvinMapper:
         ddr5_clock = max_speed if mem_tech == "DDR5" else 0
         ddr4_clock = max_speed if mem_tech == "DDR4" else 0
 
-        # 3. Anschlüsse (Erweiterte Keywords)
-        ports_back = conn.get("Schnittstellen (Rückseite)", "")
-        ports_internal = conn.get("Schnittstellen (Intern)", "")
-        storage = conn.get("Speicherschnittstellen", "")
-        slots_str = conn.get("Erweiterungssteckplätze", "")
+        ports_back = self.safe_str(conn.get("Schnittstellen (Rückseite)", ""))
+        ports_internal = self.safe_str(conn.get("Schnittstellen (Intern)", "")) + self.safe_str(conn.get("Schnittstellen", ""))
+        storage = self.safe_str(conn.get("Speicherschnittstellen", ""))
+        slots_str = self.safe_str(conn.get("Erweiterungssteckplätze", ""))
         
-        # USB / Video / LAN
         usb_back_count = count_in_string(ports_back, ["USB"])
         hdmi_count = count_in_string(ports_back, ["HDMI"])
         dp_count = count_in_string(ports_back, ["DisplayPort"])
         
         lan_count = count_in_string(ports_back, ["LAN", "RJ-45", "Ethernet"])
-        has_lan_chip = "LAN" in lan.get("Netzwerkcontroller", "") or "GbE" in lan.get("Netzwerkcontroller", "")
+        has_lan_chip = "LAN" in self.safe_str(lan.get("Netzwerkcontroller", ""))
         if lan_count == 0 and has_lan_chip: lan_count = 1
 
         audio_jacks = count_in_string(ports_back, ["Audio", "Line-Out", "Microphone", "Jack"])
-        if audio_jacks == 0 and "Audio" in audio.get("Audio Codec", ""): audio_jacks = 3
+        if audio_jacks == 0 and "Audio" in self.safe_str(audio.get("Audio Codec", "")): audio_jacks = 3
         
-        # Storage
         sata_count = count_in_string(storage, ["SATA"])
         if sata_count == 0 and formfaktor != "ITX": sata_count = 4
 
         m2_count = count_in_string(storage, ["M.2"])
         pcie_count = count_in_string(slots_str, ["PCI Express", "PCIe"])
         
-        # --- RGB & PUMP FIX (Hier war der Fehler!) ---
-        
-        # 4-Pin RGB (12V) - MSI nennt es oft JRGB
         kw_rgb_4pin = ["RGB LED", "JRGB", "RGB_HEADER", "RGB 12V", "LED_C"]
         rgb_header = count_in_string(ports_internal, kw_rgb_4pin)
         
-        # 3-Pin ARGB (5V) - MSI nennt es JARGB, JRAINBOW
         kw_argb_3pin = ["ARGB", "Addressable", "Gen 2", "JRAINBOW", "JARGB", "ADD_GEN", "A_RGB", "AD_RGB"]
         argb_header = count_in_string(ports_internal, kw_argb_3pin)
         
-        # Pumpe / AIO - MSI nennt es PUMP_SYS
         kw_pump = ["Pump", "AIO", "Water", "W_PUMP", "WP", "SYS_FAN_PUMP", "PUMP_SYS"]
         aio_pump = count_in_string(ports_internal, kw_pump)
         
-        # Wakü-Anschluss (Oft identisch mit AIO Pump oder spezieller Flow-Header)
         wakue_anschluss = 1 if aio_pump > 0 or count_in_string(ports_internal, ["Flow", "Durchfluss"]) > 0 else 0
 
         has_onboard_rgb = 0 
@@ -383,11 +335,9 @@ class MarvinMapper:
         if "Onboard LED" in feature_text or "Beleuchtungszone" in feature_text:
             has_onboard_rgb = 1
             
-        # Features
-        has_wlan = 1 if "Wi-Fi" in lan.get("Netzwerkschnittstellen", "") or "WLAN" in lan.get("Netzwerkschnittstellen", "") else 0
-        has_bt = 1 if "Bluetooth" in lan.get("Netzwerkschnittstellen", "") else 0
+        has_wlan = 1 if "Wi-Fi" in str(lan.get("Netzwerkschnittstellen", "")) or "WLAN" in str(lan.get("Netzwerkschnittstellen", "")) else 0
+        has_bt = 1 if "Bluetooth" in str(lan.get("Netzwerkschnittstellen", "")) else 0
         
-        # Dependencies
         tower_form = 3
         if formfaktor == "mATX": tower_form = 2
         elif formfaktor == "ITX": tower_form = 1
@@ -412,7 +362,6 @@ class MarvinMapper:
                 "ddr4ClockSpeed": ddr4_clock,
                 "board_ram_slots": mem_slots,
                 "board_ram_ddrtyp": mem_tech,
-                
                 "usb": ports_back,
                 "hdmi": hdmi_count,
                 "displayPort": dp_count,
@@ -423,7 +372,6 @@ class MarvinMapper:
                 "audioJacks": audio_jacks,
                 "audioOpticalOut": count_in_string(ports_back, ["S/PDIF", "Optical"]),
                 "wifiAntennaJacks": 2 if has_wlan else 0,
-                
                 "usbHeader": ports_internal,
                 "sata": sata_count,
                 "m2Slots": m2_count,
@@ -433,23 +381,18 @@ class MarvinMapper:
                 "board_sataslots": sata_count,
                 "pcie": slots_str,
                 "board_pcieslots": pcie_count,
-                
-                "audioChipset": audio.get("Audio Codec", "N/A"),
-                "audioChannels": "7.1" if "7.1" in audio.get("Typ", "") else "5.1",
-                "ethernetController": lan.get("Netzwerkcontroller", "N/A"),
+                "audioChipset": self.safe_str(audio.get("Audio Codec", "N/A")),
+                "audioChannels": "7.1" if "7.1" in str(audio.get("Typ", "")) else "5.1",
+                "ethernetController": self.safe_str(lan.get("Netzwerkcontroller", "N/A")),
                 "wlan": has_wlan,
                 "bluetooth": has_bt,
                 "board_wlan": has_wlan,
-                
-                # --- KORRIGIERTE RGB/PUMP WERTE ---
-                "rgb": has_onboard_rgb,             # Integrierte Beleuchtung (oft 0)
-                "argb": 1 if argb_header > 0 else 0, # ARGB Fähigkeit (Header vorhanden -> Ja)
+                "rgb": has_onboard_rgb,             
+                "argb": 1 if argb_header > 0 else 0, 
                 "rgb_anschluss_4pin_rgb": rgb_header,
                 "rgb_anschluss_3pin_argb": argb_header,
-                "aioPump": 1 if aio_pump > 0 else 0, # Ja/Nein Flag für Pumpe
-                "board_wakue_anschluss": wakue_anschluss, # Ja/Nein Flag
-                # ----------------------------------
-                
+                "aioPump": 1 if aio_pump > 0 else 0, 
+                "board_wakue_anschluss": wakue_anschluss, 
                 "tower_board_bauform": tower_form,
                 "board_netzteil_p8": has_p8,
                 "board_netzteil_p4": 0,
@@ -460,21 +403,18 @@ class MarvinMapper:
         }
         
     def map_psu(self, data, html_content=""):
-        """Mapping für Warengruppe 6: Netzteile (Fix: List-Handling)"""
         allg = data.get("Allgemein", {})
         strom = data.get("Stromversorgungsgerät", {})
         vers = data.get("Verschiedenes", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Leistung & Lüfter
         watt = self.extract_number(strom.get("Leistungskapazität", "0"))
-        fan_str = str(vers.get("Kühlsystem", "")) # Sicherstellen, dass String
+        fan_str = self.safe_str(vers.get("Kühlsystem", "")) 
         fan_mm = self.extract_number(fan_str)
         if fan_mm > 0 and fan_mm < 20: fan_mm *= 10
         if fan_mm == 0: fan_mm = 120 
 
-        # 2. 80 PLUS Zertifikat
-        cert_raw = str(strom.get("80-PLUS-Zertifizierung", "")).upper()
+        cert_raw = self.safe_str(strom.get("80-PLUS-Zertifizierung", "")).upper()
         cert_str = "Standard"
         cert_int = 0
         
@@ -485,18 +425,11 @@ class MarvinMapper:
         elif "BRONZE" in cert_raw: cert_str, cert_int = "BRONZE", 1
         elif "80 PLUS" in cert_raw: cert_str, cert_int = "Standard", 0
 
-        # 3. Anschlüsse (PCIe SUMMIEREN!)
-        # FIX: Falls die KI eine Liste liefert (z.B. [{"Spannung":...}]), machen wir einen String daraus
-        conns = strom.get("Angaben zu Ausgangsleistungsanschlüssen", "")
-        if isinstance(conns, list) or isinstance(conns, dict):
-            conns = json.dumps(conns) # Konvertiere komplexe Struktur in String für Regex
-        else:
-            conns = str(conns)
+        conns = self.safe_str(strom.get("Angaben zu Ausgangsleistungsanschlüssen", ""))
         
         has_p8 = 1 if "EPS" in conns or "CPU" in conns else 1
         has_p4 = 1 if "4-polig" in conns and "ATX12V" in conns else 0
         
-        # PCIe Summier-Logik
         pcie_count = 0
         conn_parts = re.split(r'[¦,\n]', conns)
         for part in conn_parts:
@@ -513,7 +446,6 @@ class MarvinMapper:
             
         pcie_str = f"{pcie_count}x 6+2-Pin" if pcie_count > 0 else "N/A"
 
-        # 4. Shortname
         brand_clean = self.clean_brand_name(p_name, ["Netzteil", str(watt)+"W", "80 Plus", cert_str, "Watt"])
         short_name = f"{watt}W {brand_clean} {cert_str}"
 
@@ -537,24 +469,20 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }   
+        }    
     
     def map_case(self, data, html_content=""):
-        """Mapping für Warengruppe 3: Gehäuse"""
         allg = data.get("Allgemein", {})
         cool_in = data.get("Kühlsystem (Installiert)", {})
         cool_sup = data.get("Kühlsystem (Unterstützt)", {})
         sys_req = data.get("Systemanforderungen", {})
         dims = data.get("Abmessungen und Gewicht", {})
-        conn = data.get("Erweiterung / Konnektivität", {})
         p_name = data.get("Produktname", data.get("_Produktname", ""))
 
-        # 1. Maße & Limits
         width = self.extract_number(dims.get("Breite", "0"))
         height = self.extract_number(dims.get("Höhe", "0"))
-        length = self.extract_number(dims.get("Tiefe", "0")) # Tiefe = Länge
+        length = self.extract_number(dims.get("Tiefe", "0")) 
         
-        # Safety Check: cm -> mm (wenn < 100)
         if width < 100 and width > 0: width *= 10
         if height < 100 and height > 0: height *= 10
         if length < 100 and length > 0: length *= 10
@@ -562,26 +490,24 @@ class MarvinMapper:
         gpu_max = self.extract_number(sys_req.get("Max. Länge Grafikkarte", "0"))
         cpu_max = self.extract_number(sys_req.get("Max. Höhe CPU-Kühler", "0"))
         
-        # 2. Formfaktor (ATX=3, mATX=2, ITX=1)
-        mb_support = allg.get("Unterstützte Mainboards", "") + allg.get("Max. Mainboard-Größe", "")
+        mb_support = self.safe_str(allg.get("Unterstützte Mainboards", "")) + self.safe_str(allg.get("Max. Mainboard-Größe", ""))
         
-        tower_form = 1 # ITX Default
+        tower_form = 1 
         form_str = "ITX"
         
         if "E-ATX" in mb_support or "Extended ATX" in mb_support:
             tower_form = 3
-            form_str = "ATX" # E-ATX mappen wir oft auf ATX oder lassen es als ATX laufen
-        elif "ATX" in mb_support: # Normales ATX
+            form_str = "ATX" 
+        elif "ATX" in mb_support: 
             tower_form = 3
             form_str = "ATX"
         elif "Micro-ATX" in mb_support or "mATX" in mb_support:
             tower_form = 2
             form_str = "mATX"
             
-        # 3. Lüfter zählen
-        # Wir zählen installierte Lüfter im String "1 x 120mm..."
         def count_fans(text_dict):
             total = 0
+            if not isinstance(text_dict, dict): return 0
             for val in text_dict.values():
                 match = re.search(r'(\d+)\s*x', str(val))
                 if match:
@@ -589,31 +515,23 @@ class MarvinMapper:
             return total
 
         fans_inc = count_fans(cool_in)
-        
-        # Max Lüfter
         fans_max = self.extract_number(cool_sup.get("Lüfterhalterungen (Gesamt)", "0"))
-        if fans_max == 0: fans_max = fans_inc + 2 # Fallback: Mindestens 2 mehr als drin sind
+        if fans_max == 0: fans_max = fans_inc + 2 
 
-        # 4. AIO Support (Größter Radiator)
         rad_front = self.extract_number(cool_sup.get("Radiatorgröße (Vorne)", "0"))
         rad_top = self.extract_number(cool_sup.get("Radiatorgröße (Oben)", "0"))
         aio_max = max(rad_front, rad_top)
         
-        # Auf Standardwerte mappen (120, 240, 280->280?, 360)
-        # JTL Liste: 0|120|240|360
         aio_val = "0"
         if aio_max >= 360: aio_val = "360"
         elif aio_max >= 240: aio_val = "240"
         elif aio_max >= 120: aio_val = "120"
 
-        # 5. Features
-        has_rgb = 1 if "RGB" in str(cool_in) or "RGB" in allg.get("Besonderheiten", "") else 0
-        is_silent = 1 if "Dämmung" in allg.get("Besonderheiten", "") or "Silent" in p_name else 0
+        has_rgb = 1 if "RGB" in str(cool_in) or "RGB" in self.safe_str(allg.get("Besonderheiten", "")) else 0
+        is_silent = 1 if "Dämmung" in self.safe_str(allg.get("Besonderheiten", "")) or "Silent" in p_name else 0
         
-        # Farbe
-        color = allg.get("Farbe", "Schwarz") # Default Schwarz
+        color = allg.get("Farbe", "Schwarz") 
 
-        # Shortname
         brand_clean = self.clean_brand_name(p_name, ["Gehäuse", "Tower", "Midi", "Case", form_str])
         short_name = f"{form_str} {brand_clean} {color}"
 
@@ -621,28 +539,22 @@ class MarvinMapper:
             "kWarengruppe": 3,
             "Attribute": {
                 "shortNameLang": short_name,
-                "formFactor": form_str, # ATX|mATX|ITX
-                "tower_board_bauform": tower_form, # 3|2|1
-                
+                "formFactor": form_str, 
+                "tower_board_bauform": tower_form, 
                 "width": width,
                 "height": height,
                 "length": length,
-                
-                "tower_grafik_groesse": gpu_max, # Max GPU Länge
-                "cpukuehler_bauhoehe": cpu_max,  # Max CPU Höhe
-                
+                "tower_grafik_groesse": gpu_max, 
+                "cpukuehler_bauhoehe": cpu_max,  
                 "fansInc": fans_inc,
                 "fansMax": fans_max,
                 "aioSlots": aio_val, 
                 "wakue_slots": 1 if aio_max > 0 else 0, 
-                
                 "rgb": has_rgb,
                 "silent": is_silent,
                 "color": color,
-                
                 "tower_lw_slots": 0, 
                 "low_profile": 0,
-                
                 "konfiggruppen_typ": "Gehäuse",
                 "upgradeArticle": 1,
                 "Seriennummer": 1,
@@ -652,13 +564,12 @@ class MarvinMapper:
         }
         
     def map_storage(self, data, html_content=""):
-        """Mapping für Warengruppe 13: Speicher (Fix: Speed Plausibilität)"""
         allg = data.get("Allgemein", {})
         perf = data.get("Leistung", {})
         p_name = data.get("Produktname", data.get("_Produktname", ""))
-        form = allg.get("Formfaktor", "")
-        interf = allg.get("Schnittstelle", "")
-        dev_type = allg.get("Gerätetyp", "")
+        form = self.safe_str(allg.get("Formfaktor", ""))
+        interf = self.safe_str(allg.get("Schnittstelle", ""))
+        dev_type = self.safe_str(allg.get("Gerätetyp", ""))
         
         disk_type = "SSD"
         if "HDD" in dev_type or "Festplatte" in dev_type or "7200" in str(perf.get("Spindelgeschwindigkeit", "")):
@@ -669,8 +580,7 @@ class MarvinMapper:
         elif "2.5" in form:
             disk_type = "SSD"
 
-        # 2. Kapazität
-        cap_raw = allg.get("Kapazität", "0")
+        cap_raw = self.safe_str(allg.get("Kapazität", "0"))
         cap_gb = 0
         match_tb = re.search(r'(\d+)\s*TB', cap_raw, re.IGNORECASE)
         if match_tb: cap_gb = int(match_tb.group(1)) * 1000
@@ -678,7 +588,6 @@ class MarvinMapper:
             match_gb = re.search(r'(\d+)', cap_raw)
             if match_gb: cap_gb = int(match_gb.group(1))
 
-        # 3. Geschwindigkeit (Mit Plausibilitäts-Check)
         def get_speed(val):
             if not val or val == "N/A": return 0
             val_str = str(val).upper()
@@ -687,16 +596,14 @@ class MarvinMapper:
             
             speed = int(num * 1000) if is_gb else int(num)
             if speed < 100 and disk_type != "HDD":
-                return 0 # Ungültig, lieber 0 als 6 MB/s
+                return 0 
             return speed
 
         read_speed = get_speed(perf.get("Interner Datendurchsatz (Lesen)", "0"))
         write_speed = get_speed(perf.get("Interner Datendurchsatz (Schreiben)", "0"))
         
-        # Fallback NVMe
         if read_speed < 500 and disk_type == "M.2 NVMe": read_speed = 3500
 
-        # 4. Shortname & Dependencies
         is_m2 = "M.2" in disk_type
         
         remove_items = [disk_type, cap_raw, cap_raw.replace(" ", ""), "SSD", "HDD", "M.2", "NVMe", "Interne", "Solid State Drive", "Gen4"]
@@ -724,21 +631,18 @@ class MarvinMapper:
         } 
         
     def map_monitor(self, data, html_content=""):
-        """Mapping für Warengruppe 10: Monitore / TFTs (Optimiert)"""
         allg = data.get("Allgemein", {})
         disp = data.get("Display", {})
         conn = data.get("Schnittstellen", {})
         p_name = data.get("Produktname", data.get("_Produktname", ""))
 
-        # 1. Zollgröße (screenInch)
-        diag_str = disp.get("Diagonale", "")
+        diag_str = self.safe_str(disp.get("Diagonale", ""))
         inch = 24.0 # Fallback
         match_inch = re.search(r'(\d{2,3}(\.\d)?)', diag_str)
         if match_inch:
             inch = float(match_inch.group(1))
 
-        # 2. Auflösung (resolution)
-        res_raw = disp.get("Auflösung", "")
+        res_raw = self.safe_str(disp.get("Auflösung", ""))
         res_match = re.search(r'(\d{3,4})\s*[xX]\s*(\d{3,4})', res_raw)
         
         resolution = "1920x1080"
@@ -747,8 +651,7 @@ class MarvinMapper:
             h = res_match.group(2)
             resolution = f"{w}x{h}"
 
-        # 3. Anschlüsse
-        ports_str = conn.get("Anschlüsse", "")
+        ports_str = self.safe_str(conn.get("Anschlüsse", ""))
         
         def count_ports(keyword):
             count = 0
@@ -765,16 +668,14 @@ class MarvinMapper:
         dvi = count_ports("DVI")
         vga = count_ports("VGA") + count_ports("D-Sub")
 
-        panel = disp.get("Panel-Typ", "").replace("Panel", "").strip()
+        panel = self.safe_str(disp.get("Panel-Typ", "")).replace("Panel", "").strip()
         if len(panel) > 10: panel = "" 
         
-        # Unnötige Wörter entfernen
         remove_list = [
             "Monitor", "TFT", "Display", "Zoll", str(int(inch)), resolution, 
             "LED", "LCD", "Gaming", "Screen", "cm", "Backlight", "hintergrundbeleuchteter"
         ]
         
-        # Versuche auch "68.6 cm" dynamisch zu entfernen
         match_cm = re.search(r'(\d+(\.\d)?)\s*cm', p_name)
         if match_cm: 
             remove_list.append(match_cm.group(0)) 
@@ -782,17 +683,14 @@ class MarvinMapper:
 
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
-        # Bereinige hässliche Reste wie "- - " oder "()"
         brand_clean = re.sub(r'[-–]\s*[-–]', '', brand_clean) 
         brand_clean = re.sub(r'^\W+|\W+$', '', brand_clean)   
         brand_clean = re.sub(r'\(\s*\)', '', brand_clean)     
         
-        # Hz Zahl
-        hz_str = disp.get("Bildwiederholrate", "")
+        hz_str = self.safe_str(disp.get("Bildwiederholrate", ""))
         hz = self.extract_number(hz_str)
         hz_info = f"{hz}Hz" if hz > 60 else ""
         
-        # Bau den Namen: "27 Zoll ASUS ProArt PA279CRV IPS 3840x2160"
         short_name = f"{inch:.0f} Zoll {brand_clean} {panel} {resolution} {hz_info}".strip()
         short_name = " ".join(short_name.split())
 
@@ -814,70 +712,58 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }   
+        }    
     
     def map_fan(self, data, html_content=""):
-        """Mapping für Warengruppe 11: Gehäuselüfter (mit Namens-Bereinigung)"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         feat = data.get("Anschlüsse & Features", {})
         p_name = data.get("Produktname", data.get("_Produktname", ""))
 
-        # 1. Größe (Wichtigstes Merkmal)
-        size_str = tech.get("Lüfterdurchmesser", "")
+        size_str = self.safe_str(tech.get("Lüfterdurchmesser", ""))
         size = "120" # Fallback
         match_size = re.search(r'(\d{2,3})', size_str)
         if match_size:
             size = match_size.group(1)
 
-        # 2. Features für den Namen
-        is_pwm = "PWM" in feat.get("Stromanschluss", "").upper() or "PWM" in p_name.upper()
+        is_pwm = "PWM" in self.safe_str(feat.get("Stromanschluss", "")).upper() or "PWM" in p_name.upper()
         
-        # RGB Check
-        rgb_str = feat.get("Beleuchtung", "").upper()
+        rgb_str = self.safe_str(feat.get("Beleuchtung", "")).upper()
         is_argb = "ARGB" in rgb_str or "ADDRESSABLE" in rgb_str
         is_rgb = "RGB" in rgb_str and not is_argb
         
-        # 3. Paketgröße (Single / Triple Pack)
         pack_qty = self.extract_number(allg.get("Paketmenge", "1"))
         pack_str = ""
         if pack_qty > 1:
             pack_str = f"{pack_qty}er-Pack"
         
-        # 4. Shortname Bauen
         attrs = []
         if is_argb: attrs.append("ARGB")
         elif is_rgb: attrs.append("RGB")
         if is_pwm: attrs.append("PWM")
         
-        color = allg.get("Farbe", "")
-        # Schwarz ist Standard, muss oft nicht in den Titel, außer es steht explizit da
+        color = self.safe_str(allg.get("Farbe", ""))
         if color and color.lower() not in ["schwarz", "n/a"]: 
             attrs.append(color)
             
         attr_string = " ".join(attrs)
         
-        # --- NAME CLEANING ---
-        
-        # Schritt A: Maße wie "120x120" oder "140 x 140" entfernen
         p_name_clean = re.sub(r'\d+\s*[xX]\s*\d+', '', p_name)
         
-        # Schritt B: Liste der zu entfernenden Wörter
         remove_list = [
             "Gehäuselüfter", "Fan", "Lüfter", "Cooling", "Case", 
-            size + "mm", size + " mm", size, # Größe entfernen
-            "PWM", "RGB", "ARGB", "LED", "Neutral", # Auch "Neutral" entfernen
+            size + "mm", size + " mm", size, 
+            "PWM", "RGB", "ARGB", "LED", "Neutral",
             pack_str, "Pack", "Kit", "Triple", "Duo"
         ]
         
         brand_clean = self.clean_brand_name(p_name_clean, remove_list)
         
-        # Schritt C: Reste aufräumen (doppelte Bindestriche etc.)
         brand_clean = re.sub(r'[-–]\s*[-–]', '', brand_clean)
         brand_clean = re.sub(r'^\W+|\W+$', '', brand_clean)
         
         short_name = f"{size}mm {brand_clean} {attr_string} {pack_str}".strip()
-        short_name = " ".join(short_name.split()) # Doppelte Leerzeichen weg
+        short_name = " ".join(short_name.split()) 
 
         return {
             "kWarengruppe": 11,
@@ -892,25 +778,20 @@ class MarvinMapper:
         }
         
     def map_cpu_cooler(self, data, html_content=""):
-        """Mapping für Warengruppe 9: CPU-Kühler & AiO"""
         allg = data.get("Allgemein", {})
         komp = data.get("Kompatibilität", {})
         tech = data.get("Technische Daten", {})
         feat = data.get("Beleuchtung & Features", {})
         p_name = data.get("Produktname", data.get("_Produktname", ""))
 
-        # 1. Typ Bestimmung (Luft vs AiO)
         is_aio = "aio" in str(allg).lower() or "wasser" in str(allg).lower() or "liquid" in p_name.lower()
         
-        # 2. Bauhöhe & Radiator
         height_mm = self._extract_value_with_unit(tech.get("Bauhöhe (nur Kühler)", ""), "mm")
         rad_size = self._extract_value_with_unit(tech.get("Radiatorgröße", ""), "mm")
 
-        # Fallback AiO Höhe
         if is_aio and height_mm == 0: height_mm = 55 
             
-        # 3. Sockel & Typ
-        sockets_str = str(komp.get("Sockel", ""))
+        sockets_str = self.safe_str(komp.get("Sockel", ""))
         sockets_clean = sockets_str.replace("[", "").replace("]", "").replace("'", "")
         
         has_amd = "AM" in sockets_clean.upper() or "FM" in sockets_clean.upper()
@@ -921,16 +802,13 @@ class MarvinMapper:
         elif has_intel: cpu_kuehler_typ = 2
         elif has_amd: cpu_kuehler_typ = 1
         
-        # 4. Features
         rgb_text = str(feat) + " " + p_name
         has_rgb = 1 if "RGB" in rgb_text else 0
         has_argb = 1 if "ARGB" in rgb_text or "Addressable" in rgb_text else 0
         is_silent = 1 if "silent" in str(data).lower() or "quiet" in p_name.lower() else 0
         
-        # 5. TDP
         tdp = int(self._extract_value_with_unit(allg.get("TDP-Klasse", ""), "W|Watt"))
         
-        # 6. Shortname
         suffix = ""
         if is_aio and rad_size > 0: suffix = f"{int(rad_size)}mm AiO"
         elif tdp > 0: suffix = f"{tdp}W TDP"
@@ -947,7 +825,7 @@ class MarvinMapper:
                 "tdp": tdp,
                 "rgb": has_rgb,
                 "argb": has_argb,
-                "rgb_anschluss_4pin_rgb": has_rgb,   
+                "rgb_anschluss_4pin_rgb": has_rgb,    
                 "rgb_anschluss_3pin_argb": has_argb, 
                 "cpukuehler_typ": cpu_kuehler_typ,
                 "board_cpukuehler_sockel": sockets_clean[:255], 
@@ -962,16 +840,13 @@ class MarvinMapper:
         }  
     
     def map_cooler_wg12(self, data, html_content=""):
-        """Mapping für Warengruppe 12: Kühler (Legacy/Generic)"""
         komp = data.get("Kompatibilität", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Bauhöhe
         height_mm = self._extract_value_with_unit(tech.get("Bauhöhe (nur Kühler)", ""), "mm")
         
-        # 2. Sockel & Typ (AMD/Intel Logik wie bei WG 9)
-        sockets_str = str(komp.get("Sockel", ""))
+        sockets_str = self.safe_str(komp.get("Sockel", ""))
         sockets_clean = sockets_str.replace("[", "").replace("]", "").replace("'", "")
         
         has_amd = "AM" in sockets_clean.upper() or "FM" in sockets_clean.upper()
@@ -982,21 +857,19 @@ class MarvinMapper:
         elif has_intel: cpu_kuehler_typ = 2
         elif has_amd: cpu_kuehler_typ = 1
 
-        # 3. Shortname
-        # Wir entfernen generische Begriffe
         remove_list = ["Kühler", "Cooler", "CPU", "Prozessor"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         short_name = f"{brand_clean} {int(height_mm)}mm".strip()
 
         return {
-            "kWarengruppe": 12, # WICHTIG: WG 12
+            "kWarengruppe": 12, 
             "Attribute": {
                 "shortNameLang": short_name,
                 "cpukuehler_bauhoehe": int(height_mm),
-                "cpukuehler_breite": 1, # Standard: Passt
+                "cpukuehler_breite": 1, 
                 "cpukuehler_typ": cpu_kuehler_typ,
                 "board_cpukuehler_sockel": sockets_clean[:255],
-                "konfiggruppen_typ": "Kühler", # Wie in der Tabelle benannt
+                "konfiggruppen_typ": "Kühler",
                 "Seriennummer": 1,
                 "upgradeArticle": 1,
                 "markup": 0,
@@ -1005,52 +878,42 @@ class MarvinMapper:
         }  
         
     def map_input_devices_wg14(self, data, html_content=""):
-        """Mapping für Warengruppe 14: Eingabegeräte (Generisch)"""
-        # Da WG 14 keine technischen Felder hat, bauen wir einen starken Shortname.
-        
         allg = data.get("Allgemein", {})
         conn = data.get("Konnektivität", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
         
         dev_type = allg.get("Gerätetyp", "Eingabegerät")
-        connection = str(conn.get("Anschlusstechnik", ""))
-        interface = str(conn.get("Schnittstelle", ""))
-        layout = str(tech.get("Layout", ""))
-        color = allg.get("Farbe", "")
+        connection = self.safe_str(conn.get("Anschlusstechnik", ""))
+        interface = self.safe_str(conn.get("Schnittstelle", ""))
+        layout = self.safe_str(tech.get("Layout", ""))
+        color = self.safe_str(allg.get("Farbe", ""))
         
-        # Features für Shortname sammeln
         features = []
         
-        # 1. Verbindung (Wireless vs USB)
         if "kabellos" in connection.lower() or "wireless" in connection.lower() or "bluetooth" in connection.lower() or "bluetooth" in interface.lower():
             features.append("Wireless")
         elif "verkabelt" in connection.lower() or "usb" in connection.lower() or "kabel" in connection.lower():
             features.append("USB")
             
-        # 2. Layout (nur bei Tastaturen relevant)
         if "Deutsch" in layout or "DE" in layout or "QWERTZ" in layout:
             features.append("DE")
         elif "US" in layout or "QWERTY" in layout:
             features.append("US")
             
-        # 3. Farbe
         if color and color != "N/A":
             features.append(color)
 
         feature_str = " ".join(features)
         
-        # Bereinigung des Markennamens
         remove_list = ["Eingabegerät", "Tastatur", "Maus", "Keyboard", "Mouse", "Gaming", "Desktop", "Set"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
-        # Shortname: "Logitech K120 Tastatur USB DE Schwarz"
         short_name = f"{brand_clean} {dev_type} {feature_str}".strip()
-        # Doppelte Leerzeichen entfernen
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 14, # WG 14
+            "kWarengruppe": 14, 
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Eingabegeräte",
@@ -1058,63 +921,52 @@ class MarvinMapper:
                 "upgradeArticle": 1,
                 "markup": 0,
                 "Hardware": 0
-                # Keine weiteren Attribute vorhanden laut Tabelle
             }
         } 
         
     def map_cables_wg15(self, data, html_content=""):
-        """Mapping für Warengruppe 15: Kabel & Adapter"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
         typ = allg.get("Gerätetyp", "Kabel")
-        conn_a = str(tech.get("Anschluss A", ""))
-        conn_b = str(tech.get("Anschluss B", ""))
-        length = str(tech.get("Länge", ""))
-        standard = str(tech.get("Standard", ""))
-        color = allg.get("Farbe", "")
+        conn_a = self.safe_str(tech.get("Anschluss A", ""))
+        conn_b = self.safe_str(tech.get("Anschluss B", ""))
+        length = self.safe_str(tech.get("Länge", ""))
+        standard = self.safe_str(tech.get("Standard", ""))
+        color = self.safe_str(allg.get("Farbe", ""))
 
-        # Wir bauen den Namensteil für Anschlüsse
-        # Ziel: "HDMI auf DVI" oder "USB-C zu USB-A"
         conn_str = ""
         if conn_a and conn_b and conn_a != "N/A":
-            # Bereinigung einfacher Worte wie "Anschluss" oder "Stecker" für kürzeren Titel
             c_a_clean = conn_a.replace("Anschluss", "").strip()
             c_b_clean = conn_b.replace("Anschluss", "").strip()
             conn_str = f"{c_a_clean} auf {c_b_clean}"
         elif conn_a and conn_a != "N/A":
             conn_str = conn_a
             
-        # Länge formatieren (Leerzeichen weg: 1.5 m -> 1.5m)
         len_str = ""
         if length and length != "N/A":
             len_str = length.replace(" ", "")
             
-        # Standard dazu (Cat6, HDMI 2.0)
         std_str = ""
         if standard and standard != "N/A":
             std_str = standard
 
-        # Shortname zusammenbauen
         remove_list = ["Kabel", "Adapter", "Verbindungskabel", "Anschlusskabel"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
-        # Bsp: "Goobay HDMI auf DVI 1.5m HDMI 1.4 Schwarz"
         parts = [brand_clean, conn_str, len_str, std_str, typ, color]
-        # Filter leere Teile und 'N/A'
         parts_clean = [p for p in parts if p and "N/A" not in p]
         
         short_name = " ".join(parts_clean).strip()
-        # Doppelte Leerzeichen killen
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 15, # WG 15
+            "kWarengruppe": 15,
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Kabel/Adapter",
-                "Seriennummer": 0, # Kabel haben selten Seriennummern-Pflicht
+                "Seriennummer": 0,
                 "upgradeArticle": 1,
                 "markup": 0,
                 "Hardware": 0
@@ -1122,36 +974,28 @@ class MarvinMapper:
         }  
         
     def map_soundcard_wg16(self, data, html_content=""):
-        """Mapping für Warengruppe 16: Soundkarten"""
         allg = data.get("Allgemein", {})
         audio = data.get("Audio", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Low Profile Check (Das einzige technische Feld laut Tabelle)
-        lp_str = str(tech.get("Low Profile", "")).lower()
-        # Prüfen ob 'ja' drin steht oder ob 'low profile' im Namen vorkommt
+        lp_str = self.safe_str(tech.get("Low Profile", "")).lower()
         is_lp = 1 if "ja" in lp_str or "yes" in lp_str or "low profile" in p_name.lower() or "lp" in p_name.lower().split() else 0
 
-        # 2. Shortname Info
-        interface = allg.get("Schnittstelle", "")
-        # Bereinigung: "PCI Express" -> "PCIe" für kürzeren Namen
+        interface = self.safe_str(allg.get("Schnittstelle", ""))
         if "express" in interface.lower(): interface = "PCIe"
         if "usb" in interface.lower(): interface = "USB"
 
-        channels = audio.get("Soundmodus", "")
-        # Versuche "5.1" oder "7.1" zu finden
+        channels = self.safe_str(audio.get("Soundmodus", ""))
         chan_short = ""
         if "7.1" in channels: chan_short = "7.1"
         elif "5.1" in channels: chan_short = "5.1"
         elif "stereo" in channels.lower(): chan_short = "Stereo"
 
-        # Shortname: "Creative Sound Blaster AE-7 PCIe 7.1"
         remove_list = ["Soundkarte", "Audio", "Interface", "Internal", "External", "Hi-Res", "Gaming", "PCIe", "USB", "Sound", "Card"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
 
         short_name = f"{brand_clean} {interface} {chan_short}".strip()
-        # Doppelte Leerzeichen entfernen
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
@@ -1168,29 +1012,23 @@ class MarvinMapper:
         } 
         
     def map_audio_wg17(self, data, html_content=""):
-        """Mapping für Warengruppe 17: Audio Ein-/Ausgabe (Mikros, Interfaces)"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Low Profile Check (Standard-Feld in dieser WG)
-        lp_str = str(tech.get("Low Profile", "")).lower()
+        lp_str = self.safe_str(tech.get("Low Profile", "")).lower()
         is_lp = 1 if "ja" in lp_str or "yes" in lp_str or "low profile" in p_name.lower() else 0
 
-        # 2. Shortname Bauen
         dev_type = allg.get("Gerätetyp", "Audio-Gerät")
-        interface = tech.get("Schnittstelle", "")
+        interface = self.safe_str(tech.get("Schnittstelle", ""))
         
-        # Bereinigung Schnittstelle
         if "USB" in interface: interface = "USB"
         elif "XLR" in interface: interface = "XLR"
         elif "PCI" in interface: interface = "PCIe"
         
-        # Bereinigung Markenname (Liste von generischen Begriffen)
         remove_list = ["Audio", "Gerät", "Mikrofon", "Microphone", "Interface", "USB", "XLR", "Kondensator", "Streaming"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
-        # Shortname: "Elgato Wave:3 Mikrofon USB Schwarz"
         short_name = f"{brand_clean} {dev_type} {interface}".strip()
         short_name = re.sub(r'\s+', ' ', short_name)
 
@@ -1199,7 +1037,7 @@ class MarvinMapper:
             "Attribute": {
                 "shortNameLang": short_name,
                 "low_profile": is_lp,
-                "konfiggruppen_typ": "Audio", # Oder "Mikrofon" / "Interface" je nach Bedarf, hier generisch
+                "konfiggruppen_typ": "Audio", 
                 "Seriennummer": 1,
                 "upgradeArticle": 1,
                 "markup": 0,
@@ -1208,34 +1046,28 @@ class MarvinMapper:
         }  
         
     def map_webcam_wg18(self, data, html_content=""):
-        """Mapping für Warengruppe 18: Webcams"""
         allg = data.get("Allgemein", {})
         video = data.get("Video", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Auflösung extrahieren (4K, 1080p, 720p)
-        res_str = str(video.get("Max. Auflösung", "")).upper()
+        res_str = self.safe_str(video.get("Max. Auflösung", "")).upper()
         res_short = ""
         if "4K" in res_str or "2160" in res_str: res_short = "4K"
         elif "1080" in res_str or "FULL HD" in res_str or "FHD" in res_str: res_short = "1080p"
         elif "720" in res_str or "HD" in res_str: res_short = "720p"
         
-        # 2. FPS extrahieren
-        fps_str = str(video.get("Max. Bildrate", "")).lower()
+        fps_str = self.safe_str(video.get("Max. Bildrate", "")).lower()
         fps_short = ""
         if "60" in fps_str: fps_short = "60fps"
         elif "30" in fps_str: fps_short = "30fps"
         
-        # 3. Shortname Bauen
-        # Ziel: "Logitech C920 HD Pro 1080p 30fps Schwarz"
         remove_list = ["Webcam", "Kamera", "Camera", "HD", "Full", "UHD", "Pro", "Stream"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
-        color = allg.get("Farbe", "")
+        color = self.safe_str(allg.get("Farbe", ""))
         if color == "N/A": color = ""
 
-        # Zusammenbauen
         parts = [brand_clean, res_short, fps_short, "Webcam", color]
-        parts_clean = [p for p in parts if p] # Leere entfernen
+        parts_clean = [p for p in parts if p] 
         
         short_name = " ".join(parts_clean).strip()
         short_name = re.sub(r'\s+', ' ', short_name)
@@ -1250,40 +1082,33 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }                 
+        }                  
     
     def map_gaming_chair_wg19(self, data, html_content=""):
-        """Mapping für Warengruppe 19: Gamingstühle"""
         allg = data.get("Allgemein", {})
         mat = data.get("Materialien", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Material
-        material = str(mat.get("Bezug", "")).lower()
+        material = self.safe_str(mat.get("Bezug", "")).lower()
         mat_short = ""
         if "stoff" in material or "fabric" in material: mat_short = "Stoff"
         elif "kunstleder" in material or "pu" in material: mat_short = "Kunstleder"
         elif "echtleder" in material or "leder" in material: mat_short = "Echtleder"
         elif "mesh" in material: mat_short = "Mesh"
-        else: mat_short = "Stoff/Kunstleder" # Fallback
+        else: mat_short = "Stoff/Kunstleder" 
 
-        # 2. Belastbarkeit
-        weight_load = str(tech.get("Max. Belastbarkeit", ""))
+        weight_load = self.safe_str(tech.get("Max. Belastbarkeit", ""))
         weight_short = ""
         match_w = re.search(r'(\d+)', weight_load)
         if match_w:
             weight_short = f"bis {match_w.group(1)}kg"
         
-        # 3. Farbe
         color = allg.get("Farbe", "Schwarz")
         
-        # 4. Shortname Bauen
         remove_list = ["Gaming", "Stuhl", "Chair", "Sitz", "Office", "Bürostuhl", "Series", "Edition"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
-        # Reihenfolge: Marke Modell "Gaming Stuhl" Material Farbe Gewicht
-        # Bsp: "Noblechairs HERO Gaming Stuhl Kunstleder Schwarz bis 150kg"
         parts = [brand_clean, "Gaming Stuhl", mat_short, color, weight_short]
         parts_clean = [p for p in parts if p]
         
@@ -1303,47 +1128,52 @@ class MarvinMapper:
         }
         
     def map_network_card_wg20(self, data, html_content=""):
-        """Mapping für Warengruppe 20: Netzwerkkarten"""
         allg = data.get("Allgemein", {})
-        tech = data.get("Technische Daten", {})
-        p_name = data.get("Produktname", "")
+        p_name = data.get("Produktname", data.get("_Produktname", ""))
+        
+        # Bereiche wo Netzwerk-Daten stehen können
+        search_areas = ["Technische Daten", "Netzwerk", "Anschlüsse und Schnittstellen"]
 
-        # 1. Low Profile Check
-        lp_str = str(tech.get("Low Profile", "")).lower()
+        # 1. Low Profile
+        lp_str = self.get_val_anywhere(data, ["Technische Daten", "Allgemein"], "Low Profile").lower()
         is_lp = 1 if "ja" in lp_str or "yes" in lp_str or "low profile" in p_name.lower() else 0
 
-        # 2. Geschwindigkeit Normalisieren
-        speed_raw = str(tech.get("Übertragungsrate", "")).upper()
+        # 2. Geschwindigkeit
+        # Suche nach "Übertragungsrate" ODER "Maximale Datenübertragungsrate"
+        speed_raw = self.get_val_anywhere(data, search_areas, "Übertragungsrate").upper()
+        if not speed_raw:
+            speed_raw = self.get_val_anywhere(data, search_areas, "Maximale Datenübertragungsrate").upper()
+
         speed_short = ""
-        
-        # Logik für Gbps/Mbps
         if "10 G" in speed_raw or "10000 M" in speed_raw: speed_short = "10GbE"
         elif "2.5 G" in speed_raw or "2500 M" in speed_raw: speed_short = "2.5GbE"
         elif "1 G" in speed_raw or "1000 M" in speed_raw: speed_short = "1GbE"
-        elif "WIFI" in speed_raw: speed_short = "WiFi"
+        elif "300 MBIT" in speed_raw: speed_short = "300 Mbit/s" # Dein Beispiel 101745
+        elif "150 MBIT" in speed_raw: speed_short = "150 Mbit/s" # Dein Beispiel 101744
+        elif "WIFI" in speed_raw or "W-LAN" in p_name.upper(): speed_short = "WiFi"
 
-        # WiFi Standard Check (Priorität vor reiner Speed-Angabe)
         if "WIFI 7" in speed_raw or "WIFI 7" in p_name.upper(): speed_short = "WiFi 7"
         elif "WIFI 6E" in speed_raw or "WIFI 6E" in p_name.upper(): speed_short = "WiFi 6E"
         elif "WIFI 6" in speed_raw or "WIFI 6" in p_name.upper(): speed_short = "WiFi 6"
 
-        # 3. Schnittstelle (PCIe vs USB)
-        interface_raw = str(tech.get("Schnittstelle", "")).upper()
+        # 3. Schnittstelle
+        interface_raw = self.get_val_anywhere(data, search_areas, "Schnittstelle").upper()
+        if not interface_raw:
+             interface_raw = self.get_val_anywhere(data, search_areas, "Hostschnittstelle").upper() # Dein Beispiel
+             
         interface_short = "PCIe" if "PCI" in interface_raw else ("USB" if "USB" in interface_raw else "")
 
-        # 4. Port Typ (RJ45 vs SFP+)
-        port_raw = str(tech.get("Anschlusstyp", "")).upper()
+        # 4. Port Typ
+        port_raw = self.get_val_anywhere(data, search_areas, "Anschlusstyp").upper()
         port_short = ""
         if "SFP" in port_raw: port_short = "SFP+"
         elif "RJ45" in port_raw or "RJ-45" in port_raw: port_short = "RJ45"
         
-        # 5. Shortname Bauen
-        remove_list = ["Netzwerkkarte", "Network", "Adapter", "Card", "Ethernet", "Gigabit", "Controller", "Interface"]
+        remove_list = ["Netzwerkkarte", "Network", "Adapter", "Card", "Ethernet", "Gigabit", "Controller", "Interface", "PCI", "Express"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
-        # Bsp: "TP-Link TX401 10GbE PCIe RJ45"
         parts = [brand_clean, speed_short, interface_short, port_short]
-        parts_clean = [p for p in parts if p]
+        parts_clean = [p for p in parts if p and "N/A" not in p]
         
         short_name = " ".join(parts_clean).strip()
         short_name = re.sub(r'\s+', ' ', short_name)
@@ -1359,55 +1189,71 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        } 
+        }
         
     def map_network_adapter_wg21(self, data, html_content=""):
-        """Mapping für Warengruppe 21: Netzwerkadapter"""
-        # Logik identisch zu WG 20, aber eigene ID
+        """Mapping für Warengruppe 21: Netzwerkadapter (USB-Sticks, WLAN-Dongles)"""
         allg = data.get("Allgemein", {})
-        tech = data.get("Technische Daten", {})
-        p_name = data.get("Produktname", "")
+        p_name = data.get("Produktname", data.get("_Produktname", ""))
+
+        # Erweitere Suche auf alle relevanten Bereiche
+        search_areas = ["Technische Daten", "Netzwerk", "Anschlüsse und Schnittstellen", "Leistungen"]
 
         # 1. Low Profile Check
-        lp_str = str(tech.get("Low Profile", "")).lower()
+        lp_str = self.get_val_anywhere(data, ["Technische Daten", "Allgemein"], "Low Profile").lower()
         is_lp = 1 if "ja" in lp_str or "yes" in lp_str or "low profile" in p_name.lower() else 0
 
         # 2. Geschwindigkeit
-        speed_raw = str(tech.get("Übertragungsrate", "")).upper()
+        speed_raw = self.get_val_anywhere(data, search_areas, "Übertragungsrate").upper()
+        if not speed_raw:
+            speed_raw = self.get_val_anywhere(data, search_areas, "Maximale Datenübertragungsrate").upper()
+
         speed_short = ""
         
+        # Gigabit Logik
         if "10 G" in speed_raw or "10000 M" in speed_raw: speed_short = "10GbE"
         elif "2.5 G" in speed_raw or "2500 M" in speed_raw: speed_short = "2.5GbE"
         elif "1 G" in speed_raw or "1000 M" in speed_raw: speed_short = "1GbE"
+        
+        # Mbit Logik (Deine Beispiele 101744 / 101745)
+        elif "300 MBIT" in speed_raw: speed_short = "300 Mbit/s"
+        elif "150 MBIT" in speed_raw: speed_short = "150 Mbit/s"
+        
+        # WiFi Fallback
         elif "WIFI" in speed_raw: speed_short = "WiFi"
 
+        # WiFi Standards (Prio vor Speed)
         if "WIFI 7" in speed_raw or "WIFI 7" in p_name.upper(): speed_short = "WiFi 7"
         elif "WIFI 6E" in speed_raw or "WIFI 6E" in p_name.upper(): speed_short = "WiFi 6E"
         elif "WIFI 6" in speed_raw or "WIFI 6" in p_name.upper(): speed_short = "WiFi 6"
 
         # 3. Schnittstelle
-        interface_raw = str(tech.get("Schnittstelle", "")).upper()
-        interface_short = "PCIe" if "PCI" in interface_raw else ("USB" if "USB" in interface_raw else "")
+        interface_raw = self.get_val_anywhere(data, search_areas, "Schnittstelle").upper()
+        if not interface_raw:
+             interface_raw = self.get_val_anywhere(data, search_areas, "Hostschnittstelle").upper()
+
+        interface_short = "USB" # Default bei Adaptern oft USB
+        if "PCI" in interface_raw: interface_short = "PCIe"
+        elif "USB" in interface_raw: interface_short = "USB"
 
         # 4. Port Typ
-        port_raw = str(tech.get("Anschlusstyp", "")).upper()
+        port_raw = self.get_val_anywhere(data, search_areas, "Anschlusstyp").upper()
         port_short = ""
         if "SFP" in port_raw: port_short = "SFP+"
         elif "RJ45" in port_raw or "RJ-45" in port_raw: port_short = "RJ45"
         
         # 5. Shortname
-        remove_list = ["Netzwerkkarte", "Netzwerkadapter", "Network", "Adapter", "Card", "Ethernet", "Gigabit", "Controller", "Interface", "Dongle", "Stick"]
+        remove_list = ["Netzwerkkarte", "Netzwerkadapter", "Network", "Adapter", "Card", "Ethernet", "Gigabit", "Controller", "Interface", "Dongle", "Stick", "W-Lan", "WLAN"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
-        # Bsp: "AVM FRITZ!WLAN Stick AC 860 WiFi USB"
         parts = [brand_clean, speed_short, interface_short, port_short]
-        parts_clean = [p for p in parts if p]
+        parts_clean = [p for p in parts if p and "N/A" not in p]
         
         short_name = " ".join(parts_clean).strip()
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 21, # WICHTIG: WG 21
+            "kWarengruppe": 21, 
             "Attribute": {
                 "shortNameLang": short_name,
                 "low_profile": is_lp,
@@ -1420,53 +1266,42 @@ class MarvinMapper:
         } 
         
     def map_software_wg22(self, data, html_content=""):
-        """Mapping für Warengruppe 22: Software"""
         allg = data.get("Allgemein", {})
         det = data.get("Details", {})
         sys = data.get("Systemanforderungen", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Daten extrahieren
         titel = allg.get("Titel", p_name)
         edition = det.get("Version/Edition", "")
-        sprache = str(det.get("Sprache", "")).title()
+        sprache = self.safe_str(det.get("Sprache", "")).title()
         lizenz = det.get("Lizenzart", "")
-        kategorie = det.get("Kategorie", "").lower()
+        kategorie = self.safe_str(det.get("Kategorie", "")).lower()
         arch = sys.get("Architektur", "")
 
-        # 2. Kundengruppe Logik (Nur für Betriebssysteme)
-        # Tabelle sagt: "nur für Betriebssystem kommagetrennt de=1,2,6 // fr=7"
-        kundengruppe = "0" # Default
+        kundengruppe = "0" 
         
-        is_os = "betriebssystem" in kategorie or "windows" in titel.lower() or "server" in titel.lower()
+        is_os = "betriebssystem" in kategorie or "windows" in str(titel).lower() or "server" in str(titel).lower()
         
         if is_os:
-            if "Deutsch" in sprache or "German" in sprache or "DE" in p_name.upper():
+            if "Deutsch" in sprache or "German" in sprache or "DE" in str(p_name).upper():
                 kundengruppe = "1,2,6"
-            elif "Französisch" in sprache or "French" in sprache or "FR" in p_name.upper():
+            elif "Französisch" in sprache or "French" in sprache or "FR" in str(p_name).upper():
                 kundengruppe = "7"
-            # Falls Multilingual, könnte man entscheiden (vielleicht beide oder Standard?)
             elif "Multi" in sprache:
-                kundengruppe = "1,2,6" # Annahme: Multi enthält meist DE
+                kundengruppe = "1,2,6" 
 
-        # 3. Shortname Bauen
-        # Ziel: "Microsoft Windows 11 Pro 64-Bit Deutsch DSP/SB"
-        
-        # Hersteller bereinigen
         brand_clean = self.clean_brand_name(p_name, ["Software", "Betriebssystem", "Lizenz", "Key", "Vollversion"])
         
-        # Sprache kürzen
         lang_short = sprache
         if "Deutsch" in sprache: lang_short = "Deutsch"
         elif "Englisch" in sprache: lang_short = "Englisch"
         elif "Multi" in sprache: lang_short = "ML"
 
-        # Architektur kürzen
         arch_short = ""
-        if "64" in arch: arch_short = "64-Bit"
+        if "64" in str(arch): arch_short = "64-Bit"
         
         parts = [brand_clean, edition, arch_short, lang_short, lizenz]
-        parts_clean = [p for p in parts if p and p not in brand_clean] # Dopplungen vermeiden
+        parts_clean = [p for p in parts if p and p not in brand_clean] 
         
         short_name = " ".join(parts_clean).strip()
         short_name = re.sub(r'\s+', ' ', short_name)
@@ -1485,24 +1320,21 @@ class MarvinMapper:
         } 
         
     def map_water_cooling_wg23(self, data, html_content=""):
-        """Mapping für Warengruppe 23: Wasserkühlungen (AiO)"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         komp = data.get("Kompatibilität", {})
         feat = data.get("Beleuchtung & Features", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Radiatorgröße & aioSlots (Mapping auf 0|120|240|360)
         rad_str = str(tech.get("Radiatorgröße", ""))
         rad_mm = self.extract_number(rad_str)
         
         aio_slots = "0"
-        if rad_mm >= 360: aio_slots = "360" # Auch 420 wird hier oft als "groß" eingeordnet oder 0
-        elif rad_mm >= 240: aio_slots = "240" # 280 fällt oft hier rein
+        if rad_mm >= 360: aio_slots = "360" 
+        elif rad_mm >= 240: aio_slots = "240" 
         elif rad_mm >= 120: aio_slots = "120"
         
-        # 2. Sockel & Typ
-        sockets_str = str(komp.get("Sockel", ""))
+        sockets_str = self.safe_str(komp.get("Sockel", ""))
         sockets_clean = sockets_str.replace("[", "").replace("]", "").replace("'", "")
         
         has_amd = "AM" in sockets_clean.upper() or "FM" in sockets_clean.upper()
@@ -1513,16 +1345,12 @@ class MarvinMapper:
         elif has_intel: cpu_kuehler_typ = 2
         elif has_amd: cpu_kuehler_typ = 1
 
-        # 3. Features & Beleuchtung
         rgb_text = str(feat) + " " + p_name
         has_rgb = 1 if "RGB" in rgb_text else 0
         has_argb = 1 if "ARGB" in rgb_text or "Addressable" in rgb_text else 0
         
-        # TDP
         tdp = int(self._extract_value_with_unit(tech.get("TDP-Klasse", ""), "W|Watt"))
 
-        # 4. Shortname Bauen
-        # Ziel: "Corsair iCUE H150i RGB Elite 360mm AiO"
         remove_list = ["Wasserkühlung", "Water Cooling", "Liquid", "Cooler", "CPU", "AiO", "System", "Komplett"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
@@ -1535,20 +1363,17 @@ class MarvinMapper:
             "kWarengruppe": 23,
             "Attribute": {
                 "shortNameLang": short_name,
-                "aioSlots": aio_slots, # WICHTIG: Werteliste
+                "aioSlots": aio_slots, 
                 "cpukuehler_typ": cpu_kuehler_typ,
                 "board_cpukuehler_sockel": sockets_clean[:255],
                 "tdp": tdp,
-                
                 "rgb": has_rgb,
                 "argb": has_argb,
                 "rgb_anschluss_3pin_argb": has_argb,
                 "rgb_anschluss_4pin_rgb": 1 if has_rgb and not has_argb else 0,
-                
-                "wakue_slots": 1, # Ist ja eine Wakü
-                "board_wakue_anschluss": 1, # Braucht Pumpen-Header
+                "wakue_slots": 1, 
+                "board_wakue_anschluss": 1, 
                 "silent": 1 if "silent" in p_name.lower() or "quiet" in p_name.lower() else 0,
-                
                 "konfiggruppen_typ": "Wasserkühlung",
                 "Seriennummer": 1,
                 "upgradeArticle": 1,
@@ -1558,21 +1383,15 @@ class MarvinMapper:
         } 
         
     def map_pc_system_wg24(self, data, html_content=""):
-        """Mapping für Warengruppe 24: PC-Systeme"""
-        allg = data.get("Allgemein", {})
         hw = data.get("Hardware", {})
         sw = data.get("Software", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Hardware Details kürzen für den Titel
-        
-        # CPU: "Intel Core i9-13900K" -> "i9-13900K"
-        cpu_raw = hw.get("Prozessor", "")
+        cpu_raw = self.safe_str(hw.get("Prozessor", ""))
         cpu_short = ""
-        match_cpu = re.search(r'(i\d-\w+|Ryzen \d \w+)', cpu_raw) # Einfaches Pattern
+        match_cpu = re.search(r'(i\d-\w+|Ryzen \d \w+)', cpu_raw) 
         if match_cpu: cpu_short = match_cpu.group(1)
         else: 
-            # Fallback: Versuche gängige Keywords zu finden
             if "i9" in cpu_raw: cpu_short = "i9"
             elif "i7" in cpu_raw: cpu_short = "i7"
             elif "i5" in cpu_raw: cpu_short = "i5"
@@ -1580,27 +1399,23 @@ class MarvinMapper:
             elif "Ryzen 7" in cpu_raw: cpu_short = "Ryzen 7"
             elif "Ryzen 5" in cpu_raw: cpu_short = "Ryzen 5"
 
-        # GPU: "NVIDIA GeForce RTX 4090" -> "RTX 4090"
-        gpu_raw = hw.get("Grafikkarte", "")
+        gpu_raw = self.safe_str(hw.get("Grafikkarte", ""))
         gpu_short = ""
         match_gpu = re.search(r'(RTX\s*\d+\w*|RX\s*\d+\w*|GTX\s*\d+)', gpu_raw, re.IGNORECASE)
         if match_gpu: 
-            gpu_short = match_gpu.group(1).upper().replace(" ", "") # RTX4090
+            gpu_short = match_gpu.group(1).upper().replace(" ", "") 
         
-        # RAM
-        ram_raw = hw.get("Arbeitsspeicher", "")
+        ram_raw = self.safe_str(hw.get("Arbeitsspeicher", ""))
         ram_short = ""
         match_ram = re.search(r'(\d+)\s*GB', ram_raw, re.IGNORECASE)
         if match_ram: ram_short = f"{match_ram.group(1)}GB"
 
-        # SSD
-        ssd_raw = hw.get("Festplatte", "")
+        ssd_raw = self.safe_str(hw.get("Festplatte", ""))
         ssd_short = ""
         match_ssd = re.search(r'(\d+)\s*(TB|GB)', ssd_raw, re.IGNORECASE)
         if match_ssd: ssd_short = f"{match_ssd.group(1)}{match_ssd.group(2)} SSD"
 
-        # OS
-        os_raw = sw.get("Betriebssystem", "")
+        os_raw = self.safe_str(sw.get("Betriebssystem", ""))
         os_short = ""
         if "11" in os_raw: os_short = "Win11"
         elif "10" in os_raw: os_short = "Win10"
@@ -1608,11 +1423,9 @@ class MarvinMapper:
         if "Pro" in os_raw: os_short += " Pro"
         elif "Home" in os_raw: os_short += " Home"
 
-        # 2. Shortname Bauen
         remove_list = ["PC-System", "Gaming", "Desktop", "Computer", "Tower", "System", "Intel", "AMD", "Nvidia", "GeForce"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
-        # Bsp: "HP Omen i9 64GB 2TB SSD RTX4090 Win11 Pro"
         parts = [brand_clean, cpu_short, ram_short, ssd_short, gpu_short, os_short]
         parts_clean = [p for p in parts if p]
         
@@ -1630,9 +1443,8 @@ class MarvinMapper:
                 "Hardware": 0
             }
         }
-        
+
     def map_misc_wg33(self, data, html_content=""):
-        """Mapping für Warengruppe 33: Sonstiges"""
         allg = data.get("Allgemein", {})
         props = data.get("Eigenschaften", {})
         p_name = data.get("Produktname", "")
@@ -1642,8 +1454,6 @@ class MarvinMapper:
         color = props.get("Farbe", "")
         if color == "N/A": color = ""
 
-        # Shortname Bauen
-        # Ziel: "Hersteller Modell Gerätetyp Merkmal"
         remove_list = ["Sonstiges", "Zubehör", "Gadget", "Verschiedenes"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
@@ -1666,13 +1476,10 @@ class MarvinMapper:
         } 
         
     def map_keyboard_wg34(self, data, html_content=""):
-        """Mapping für Warengruppe 34: Tastaturen (Spezifisch)"""
-        allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Layout (Kritisch!)
-        layout_raw = str(tech.get("Layout", "")).upper()
+        layout_raw = self.safe_str(tech.get("Layout", "")).upper()
         layout_short = ""
         if "DE" in layout_raw or "GERMAN" in layout_raw or "QWERTZ" in layout_raw:
             layout_short = "DE"
@@ -1681,36 +1488,29 @@ class MarvinMapper:
         elif "UK" in layout_raw:
             layout_short = "UK"
         
-        # 2. Switches / Typ
-        switch_raw = str(tech.get("Tastenschalter", ""))
+        switch_raw = self.safe_str(tech.get("Tastenschalter", ""))
         switch_short = ""
-        # Wir suchen nach bekannten Keywords
         if "MX" in switch_raw or "Mechanical" in switch_raw or "Mechanisch" in switch_raw:
-            # Versuche Farbe zu finden
             if "Red" in switch_raw: switch_short = "Mech. Red"
             elif "Blue" in switch_raw: switch_short = "Mech. Blue"
             elif "Brown" in switch_raw: switch_short = "Mech. Brown"
             else: switch_short = "Mechanisch"
         
-        # 3. Verbindung
-        conn_raw = str(tech.get("Verbindung", "")).lower()
+        conn_raw = self.safe_str(tech.get("Verbindung", "")).lower()
         conn_short = ""
         if "wireless" in conn_raw or "kabellos" in conn_raw or "bluetooth" in conn_raw:
             conn_short = "Wireless"
         elif "usb" in conn_raw or "kabel" in conn_raw:
             conn_short = "USB"
 
-        # 4. Beleuchtung
-        light_raw = str(tech.get("Beleuchtung", "")).upper()
+        light_raw = self.safe_str(tech.get("Beleuchtung", "")).upper()
         light_short = "RGB" if "RGB" in light_raw else ""
 
-        # 5. Shortname Bauen
-        # Ziel: "Corsair K70 RGB Pro Mechanisch Red DE Layout"
         remove_list = ["Tastatur", "Keyboard", "Gaming", "Mechanical", "Switch", "Layout"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
         parts = [brand_clean, light_short, switch_short, conn_short, layout_short]
-        if layout_short: parts.append("Layout") # "DE Layout" liest sich besser als nur "DE"
+        if layout_short: parts.append("Layout") 
         
         parts_clean = [p for p in parts if p]
         
@@ -1718,7 +1518,7 @@ class MarvinMapper:
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 34, # WG 34
+            "kWarengruppe": 34, 
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Tastatur",
@@ -1730,32 +1530,26 @@ class MarvinMapper:
         }
         
     def map_mouse_wg35(self, data, html_content=""):
-        """Mapping für Warengruppe 35: Mäuse (Spezifisch)"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
-        # 1. DPI
-        dpi_raw = str(tech.get("Bewegungsauflösung", ""))
+        dpi_raw = self.safe_str(tech.get("Bewegungsauflösung", ""))
         dpi_short = ""
         match_dpi = re.search(r'(\d+)', dpi_raw.replace('.', ''))
         if match_dpi:
             dpi_short = f"{match_dpi.group(1)}dpi"
         
-        # 2. Verbindung
-        conn_raw = str(tech.get("Anschlusstechnik", "")).lower()
+        conn_raw = self.safe_str(tech.get("Anschlusstechnik", "")).lower()
         conn_short = ""
         if "wireless" in conn_raw or "kabellos" in conn_raw or "bluetooth" in conn_raw:
             conn_short = "Wireless"
         elif "usb" in conn_raw or "verkabelt" in conn_raw:
             conn_short = "USB"
             
-        # 3. Farbe
         color = allg.get("Farbe", "Schwarz")
         if color == "N/A": color = ""
 
-        # 4. Shortname Bauen
-        # Ziel: "Logitech G Pro X Superlight Wireless 25600dpi Schwarz"
         remove_list = ["Maus", "Mouse", "Gaming", "Optical", "Sensor", "Auflösung"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
@@ -1766,7 +1560,7 @@ class MarvinMapper:
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 35, # WG 35
+            "kWarengruppe": 35,
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Maus",
@@ -1778,31 +1572,25 @@ class MarvinMapper:
         } 
         
     def map_headset_wg36(self, data, html_content=""):
-        """Mapping für Warengruppe 36: Headsets (Spezifisch)"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Verbindung (Wireless vs USB/Klinke)
-        conn_raw = str(tech.get("Anschlusstechnik", "")).lower()
+        conn_raw = self.safe_str(tech.get("Anschlusstechnik", "")).lower()
         conn_short = ""
         if "wireless" in conn_raw or "kabellos" in conn_raw or "bluetooth" in conn_raw or "funk" in conn_raw:
             conn_short = "Wireless"
         elif "usb" in conn_raw or "kabel" in conn_raw or "verkabelt" in conn_raw:
-            conn_short = "USB" # Oder "Wired", je nach Wunsch. USB ist prägnanter.
+            conn_short = "USB" 
 
-        # 2. Soundmodus (7.1 ist ein wichtiges Verkaufsargument)
-        sound_raw = str(tech.get("Soundmodus", "")).upper()
+        sound_raw = self.safe_str(tech.get("Soundmodus", "")).upper()
         sound_short = ""
         if "7.1" in sound_raw: sound_short = "7.1"
         elif "SURROUND" in sound_raw: sound_short = "Surround"
         
-        # 3. Farbe
         color = allg.get("Farbe", "Schwarz")
         if color == "N/A": color = ""
 
-        # 4. Shortname Bauen
-        # Ziel: "Logitech G733 Wireless 7.1 RGB Schwarz"
         remove_list = ["Headset", "Gaming", "Kopfhörer", "Headphones", "Ear", "Ohrhörer"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
@@ -1813,7 +1601,7 @@ class MarvinMapper:
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 36, # WG 36
+            "kWarengruppe": 36, 
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Headset",
@@ -1825,54 +1613,45 @@ class MarvinMapper:
         } 
         
     def map_streaming_wg37(self, data, html_content=""):
-        """Mapping für Warengruppe 37: Streaming (Capture Cards, Decks)"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
         dev_type = allg.get("Gerätetyp", "Streaming Gear")
         
-        # Feature-Extraction je nach Typ
         feature_short = ""
         
-        # Fall A: Capture Cards (Auflösung ist wichtig)
-        res = tech.get("Auflösung (Video)", "")
+        res = self.safe_str(tech.get("Auflösung (Video)", ""))
         if res and res != "N/A":
-            # Versuche "4K60", "1080p" zu finden
             if "4K" in res: feature_short = "4K"
             if "60" in res: feature_short += "60"
             elif "1080" in res: feature_short = "1080p"
             
-        # Fall B: Stream Decks (Tasten sind wichtig)
-        keys = str(tech.get("Anzahl Tasten", ""))
+        keys = self.safe_str(tech.get("Anzahl Tasten", ""))
         match_keys = re.search(r'(\d+)', keys)
         if match_keys:
             feature_short = f"{match_keys.group(1)} Tasten"
 
-        # Anschluss
-        conn_raw = str(tech.get("Schnittstelle", "")).upper()
+        conn_raw = self.safe_str(tech.get("Schnittstelle", "")).upper()
         conn_short = ""
         if "PCI" in conn_raw: conn_short = "PCIe"
         elif "USB" in conn_raw: conn_short = "USB"
 
-        # Shortname Bauen
-        # Ziel A: "Elgato Game Capture 4K60 Pro PCIe"
-        # Ziel B: "Elgato Stream Deck MK.2 15 Tasten USB"
         remove_list = ["Streaming", "Capture", "Card", "Game", "Controller", "Live"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
         parts = [brand_clean, feature_short, conn_short, dev_type]
-        parts_clean = [p for p in parts if p and p not in brand_clean] # Dopplungen vermeiden
+        parts_clean = [p for p in parts if p and p not in brand_clean]
         
         short_name = " ".join(parts_clean).strip()
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 37, # WG 37
+            "kWarengruppe": 37,
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Streaming",
-                "Seriennummer": 1, # Oft teure Hardware -> SN-Pflicht sinnvoll
+                "Seriennummer": 1, 
                 "upgradeArticle": 1,
                 "markup": 0,
                 "Hardware": 0
@@ -1880,37 +1659,30 @@ class MarvinMapper:
         }  
         
     def map_speakers_wg38(self, data, html_content=""):
-        """Mapping für Warengruppe 38: Lautsprecher"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         conn = data.get("Konnektivität", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Kanäle / System
-        channels = str(tech.get("Kanäle", ""))
+        channels = self.safe_str(tech.get("Kanäle", ""))
         sys_short = ""
         if "5.1" in channels: sys_short = "5.1"
         elif "2.1" in channels: sys_short = "2.1"
         elif "2.0" in channels: sys_short = "2.0"
         elif "Soundbar" in channels or "Soundbar" in p_name: sys_short = "Soundbar"
 
-        # 2. Leistung (Watt)
-        power_raw = str(tech.get("Gesamtleistung", ""))
+        power_raw = self.safe_str(tech.get("Gesamtleistung", ""))
         power_short = ""
         match_power = re.search(r'(\d+)', power_raw)
         if match_power:
             power_short = f"{match_power.group(1)}W"
 
-        # 3. Verbindung (Bluetooth ist wichtiges Feature)
-        conn_str = str(conn.get("Schnittstellen", ""))
+        conn_str = self.safe_str(conn.get("Schnittstellen", ""))
         bt_short = "Bluetooth" if "Bluetooth" in conn_str or "BT" in conn_str else ""
         
-        # 4. Farbe
         color = allg.get("Farbe", "Schwarz")
         if color == "N/A": color = ""
 
-        # 5. Shortname Bauen
-        # Ziel: "Edifier R1280DB 2.0 42W Bluetooth Schwarz"
         remove_list = ["Lautsprecher", "Speaker", "System", "Boxen", "Sound", "Multimedia"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
@@ -1933,46 +1705,38 @@ class MarvinMapper:
         }  
         
     def map_mousepad_wg39(self, data, html_content=""):
-        """Mapping für Warengruppe 39: Mauspads (Final)"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         feat = data.get("Ausstattung", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Größe / Format
-        size_cls = tech.get("Größenklasse", "")
-        dims = tech.get("Abmessungen", "")
+        size_cls = self.safe_str(tech.get("Größenklasse", ""))
+        dims = self.safe_str(tech.get("Abmessungen", ""))
         
-        # Versuche, aus den Maßen eine Klasse abzuleiten
         size_short = ""
         if size_cls and size_cls != "N/A":
             size_short = size_cls
         elif dims:
-            width_match = re.search(r'(\d{3,4})', dims) # Suche Zahl > 100 (mm)
+            width_match = re.search(r'(\d{3,4})', dims)
             if width_match:
                 width = int(width_match.group(1))
                 if width >= 800: size_short = "Extended XXL"
                 elif width >= 400: size_short = "Large"
                 else: size_short = "Medium"
 
-        # 2. Material
-        mat_raw = str(tech.get("Material", "")).lower()
-        mat_short = "Stoff" # Standard
+        mat_raw = self.safe_str(tech.get("Material", "")).lower()
+        mat_short = "Stoff" 
         if "hard" in mat_raw or "plastik" in mat_raw or "kunststoff" in mat_raw:
             mat_short = "Hard"
         elif "hybrid" in mat_raw:
             mat_short = "Hybrid"
 
-        # 3. Features (RGB)
-        feat_str = str(feat.get("Besonderheiten", ""))
+        feat_str = self.safe_str(feat.get("Besonderheiten", ""))
         rgb_short = "RGB" if "RGB" in feat_str or "Beleuchtung" in feat_str else ""
 
-        # 4. Farbe
         color = allg.get("Farbe", "Schwarz")
         if color == "N/A": color = ""
 
-        # 5. Shortname Bauen
-        # Ziel: "Razer Goliathus Chroma Extended RGB Stoff Schwarz"
         remove_list = ["Mauspad", "Mouse Pad", "Mousepad", "Mat", "Gaming", "Surface", "Unterlage"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
@@ -1983,7 +1747,7 @@ class MarvinMapper:
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 39, # WG 39
+            "kWarengruppe": 39, 
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Mauspad",
@@ -1995,13 +1759,11 @@ class MarvinMapper:
         }
         
     def map_desktop_set_wg40(self, data, html_content=""):
-        """Mapping für Warengruppe 40: Maus-Tastatur-Sets"""
         allg = data.get("Allgemein", {})
         tech = data.get("Technische Daten", {})
         p_name = data.get("Produktname", "")
 
-        # 1. Layout (Kritisch für DE-Kunden)
-        layout_raw = str(tech.get("Layout", "")).upper()
+        layout_raw = self.safe_str(tech.get("Layout", "")).upper()
         layout_short = ""
         if "DE" in layout_raw or "GERMAN" in layout_raw or "QWERTZ" in layout_raw:
             layout_short = "DE"
@@ -2010,20 +1772,16 @@ class MarvinMapper:
         elif "CH" in layout_raw or "SWISS" in layout_raw:
             layout_short = "CH"
 
-        # 2. Verbindung
-        conn_raw = str(tech.get("Verbindung", "")).lower()
+        conn_raw = self.safe_str(tech.get("Verbindung", "")).lower()
         conn_short = ""
         if "wireless" in conn_raw or "kabellos" in conn_raw or "bluetooth" in conn_raw or "funk" in conn_raw:
             conn_short = "Wireless"
         elif "usb" in conn_raw or "kabel" in conn_raw:
             conn_short = "USB"
 
-        # 3. Farbe
         color = allg.get("Farbe", "Schwarz")
         if color == "N/A": color = ""
 
-        # 4. Shortname Bauen
-        # Ziel: "Logitech MK270 Wireless Desktop-Set DE Schwarz"
         remove_list = ["Set", "Combo", "Desktop", "Maus", "Tastatur", "Keyboard", "Mouse", "Wireless", "Kabellos"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
@@ -2034,7 +1792,7 @@ class MarvinMapper:
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 40, # WG 40
+            "kWarengruppe": 40,
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Desktop-Set",
@@ -2046,22 +1804,14 @@ class MarvinMapper:
         } 
         
     def map_service_wg41(self, data, html_content=""):
-        """Mapping für Warengruppe 41: Service & Dienstleistungen"""
         allg = data.get("Allgemein", {})
         det = data.get("Details", {})
         p_name = data.get("Produktname", "")
 
-        # Daten extrahieren
         svc_type = allg.get("Dienstleistungstyp", "Service")
         duration = allg.get("Dauer", "")
         mode = det.get("Art", "")
         
-        # Bereinigung der Dauer (z.B. "3 Jahre" -> "3 Jahre")
-        # Oft steht "3Y" im Namen, wir wollen es lesbar
-        
-        # Shortname Bauen
-        # Ziel: "Lenovo Premier Support 3 Jahre Vor-Ort"
-        # Wir entfernen generische Wörter aus dem Markennamen, um Dopplungen zu vermeiden
         remove_list = ["Service", "Dienstleistung", "Pack", "Extension", "Erweiterung", "Warranty", "Garantie", "Support"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
@@ -2076,59 +1826,65 @@ class MarvinMapper:
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "Service",
-                "Seriennummer": 0, # Service-Artikel haben keine physische Seriennummer
-                "upgradeArticle": 1, # Oft als Upgrade/Cross-Selling im Warenkorb
+                "Seriennummer": 0,
+                "upgradeArticle": 1,
                 "markup": 0,
                 "Hardware": 0
             }
-        }   
+        }    
         
     def map_usb_stick_wg42(self, data, html_content=""):
-        """Mapping für Warengruppe 42: USB-Sticks"""
         allg = data.get("Allgemein", {})
-        tech = data.get("Technische Daten", {})
-        p_name = data.get("Produktname", "")
+        p_name = data.get("Produktname", data.get("_Produktname", ""))
+
+        # Wir suchen in diesen Bereichen
+        search_areas = ["Technische Daten", "Leistungen", "Schnittstellen", "Speicher"]
 
         # 1. Kapazität
-        cap_raw = str(tech.get("Kapazität", "")).upper()
+        cap_raw = self.get_val_anywhere(data, search_areas, "Kapazität").upper()
         cap_short = ""
         match_cap = re.search(r'(\d+)\s*(GB|TB)', cap_raw)
         if match_cap:
             cap_short = f"{match_cap.group(1)}{match_cap.group(2)}"
 
-        # 2. Schnittstelle (Standard & Typ)
-        iface_raw = str(tech.get("Schnittstelle", "")).upper()
-        iface_short = "USB" # Fallback
-        
-        # Standard Normalisierung
+        # 2. Schnittstelle
+        iface_raw = self.get_val_anywhere(data, search_areas, "Schnittstelle").upper()
+        if not iface_raw: # Fallback: Geräteschnittstelle oder USB-Version
+            iface_raw = self.get_val_anywhere(data, search_areas, "Geräteschnittstelle").upper()
+        if not iface_raw:
+            iface_raw = self.get_val_anywhere(data, search_areas, "USB-Version").upper()
+
+        iface_short = "USB" 
         if "3.2" in iface_raw: iface_short = "USB 3.2"
         elif "3.1" in iface_raw: iface_short = "USB 3.1"
         elif "3.0" in iface_raw: iface_short = "USB 3.0"
         elif "2.0" in iface_raw: iface_short = "USB 2.0"
         
-        # Stecker Typ (Wenn Type-C dabei ist, ist das wichtig)
         if "TYPE-C" in iface_raw or "USB-C" in iface_raw:
             iface_short += " Type-C"
         elif "DUAL" in iface_raw:
             iface_short += " Dual"
+        
+        # Bluetooth Fallback (dein Beispiel 101113 war ein Bluetooth Stick!)
+        if "BLUETOOTH" in iface_raw or "BLUETOOTH" in p_name.upper():
+            iface_short = "Bluetooth"
+            match_bt = re.search(r'(\d\.\d)', iface_raw)
+            if match_bt: iface_short += f" {match_bt.group(1)}"
 
-        # 3. Farbe
         color = allg.get("Farbe", "Schwarz")
-        if color == "N/A": color = ""
+        if color in ["N/A", ""]: color = ""
 
-        # 4. Shortname Bauen
-        # Ziel: "Kingston DataTraveler Exodia 64GB USB 3.2 Schwarz"
-        remove_list = ["USB-Stick", "Flash", "Drive", "Speicherstick", "USB", "Stick", "Pen", "Memory"]
+        remove_list = ["USB-Stick", "Flash", "Drive", "Speicherstick", "USB", "Stick", "Pen", "Memory", "Bluetooth", "Adapter"]
         brand_clean = self.clean_brand_name(p_name, remove_list)
         
-        parts = [brand_clean, cap_short, iface_short, "USB-Stick", color]
-        parts_clean = [p for p in parts if p]
+        parts = [brand_clean, cap_short, iface_short, "Stick", color]
+        parts_clean = [p for p in parts if p and "N/A" not in p]
         
         short_name = " ".join(parts_clean).strip()
         short_name = re.sub(r'\s+', ' ', short_name)
 
         return {
-            "kWarengruppe": 42, # WG 42
+            "kWarengruppe": 42, 
             "Attribute": {
                 "shortNameLang": short_name,
                 "konfiggruppen_typ": "USB-Stick",
@@ -2137,373 +1893,243 @@ class MarvinMapper:
                 "markup": 0,
                 "Hardware": 0
             }
-        }                                      
-                 
-    # Neue Kategorien werden genau hier drüber eingefügt 
+        }                                         
+                  
     # ==========================================
-    # 🎛️ MAIN DISPATCHER (Fix: json_str defined)
+    # 🎛️ MAIN DISPATCHER 
     # ==========================================
     def create_json(self, source_file, data, html_content=None):
         filename = os.path.basename(source_file)
         
-        # --- WICHTIG: Hier definieren wir die String-Variable für die Suche ---
+        # --- ROBUSTNESS CHECK ---
+        if not isinstance(data, dict):
+            print(f"   ⚠️ FEHLER: Daten für {filename} sind kein Dictionary. Überspringe Mapping.")
+            return
+
         json_str = json.dumps(data, ensure_ascii=False).lower()
-        
-        # Wir holen uns die Schlüssel der obersten Ebene
         root_keys = [k.lower() for k in data.keys()]
         
-        # Wir schauen auch kurz in "Allgemein" rein
         allgemein = data.get("Allgemein", {})
-        allgemein_str = json.dumps(allgemein).lower()
+        allgemein_str = json.dumps(allgemein, ensure_ascii=False).lower()
         
         marvin_json = {}
         found_category = False
         cat_debug = ""
 
-        # --- DETEKTION ANHAND DER STRUKTUR ---
-
-        # 1. MAINBOARD CHECK
-        if "unterstützter ram" in root_keys or ("chipsatz" in allgemein_str and "audio" in root_keys):
-             try:
+        # TRY-CATCH BLOCK GLOBAL FÜR JEDES MAPPING
+        try:
+            # 1. MAINBOARD
+            if "unterstützter ram" in root_keys or ("chipsatz" in allgemein_str and "audio" in root_keys):
                 marvin_json = self.map_mainboard(data, html_content)
                 found_category = True
                 cat_debug = "Mainboard"
-             except Exception as e:
-                print(f"   ❌ Fehler im Mainboard-Mapping für {filename}: {e}")
-                return
 
-        # 2. CPU CHECK
-        elif "speicher-controller" in root_keys or "prozessor" in root_keys:
-            try:
+            # 2. CPU
+            elif "speicher-controller" in root_keys or "prozessor" in root_keys:
                 marvin_json = self.map_cpu(data, html_content)
                 found_category = True
                 cat_debug = "Prozessor"
-            except Exception as e:
-                print(f"   ❌ Fehler im CPU-Mapping für {filename}: {e}")
-                return
 
-        # 3. GPU CHECK
-        elif "systemanforderungen" in root_keys and "grafikprozessor" in allgemein_str:
-            try:
+            # 3. GPU
+            elif "systemanforderungen" in root_keys and "grafikprozessor" in allgemein_str:
                 marvin_json = self.map_gpu(data, html_content)
                 found_category = True
                 cat_debug = "Grafikkarte"
-            except Exception as e:
-                print(f"   ❌ Fehler im GPU-Mapping für {filename}: {e}")
-                return
 
-        # 4. RAM CHECK
-        elif "arbeitsspeicher" in root_keys and "grafikprozessor" not in allgemein_str:
-             try:
+            # 4. RAM
+            elif "arbeitsspeicher" in root_keys and "grafikprozessor" not in allgemein_str:
                 marvin_json = self.map_ram(data, html_content)
                 found_category = True
                 cat_debug = "RAM"
-             except Exception as e:
-                print(f"   ❌ Fehler im RAM-Mapping für {filename}: {e}")
-                return
-        
-        # 5. GEHÄUSE / CASE CHECK
-        elif "kühlsystem (installiert)" in root_keys or "gehäuse" in allgemein_str or "midi tower" in allgemein_str:
-             try:
+            
+            # 5. GEHÄUSE
+            elif "kühlsystem (installiert)" in root_keys or "gehäuse" in allgemein_str or "midi tower" in allgemein_str:
                 marvin_json = self.map_case(data, html_content)
                 found_category = True
                 cat_debug = "Gehäuse"
-             except Exception as e:
-                print(f"   ❌ Fehler im Case-Mapping für {filename}: {e}")
-                return
-         
-        # 6. NETZTEIL CHECK
-        elif "stromversorgungsgerät" in root_keys or "netzteil" in allgemein_str:
-             try:
+            
+            # 6. NETZTEIL
+            elif "stromversorgungsgerät" in root_keys or "netzteil" in allgemein_str:
                 marvin_json = self.map_psu(data, html_content)
                 found_category = True
                 cat_debug = "Netzteil"
-             except Exception as e:
-                print(f"   ❌ Fehler im PSU-Mapping für {filename}: {e}")
-                return 
-            
-        # 7. STORAGE CHECK (SSD / HDD)
-        # Hier nutzen wir json_str, deshalb muss es oben definiert sein!
-        elif "festplatte" in root_keys or "ssd" in json_str or "hdd" in json_str or "kapazität" in allgemein_str:
-             try:
+                
+            # 7. STORAGE
+            elif "festplatte" in root_keys or "ssd" in json_str or "hdd" in json_str or "kapazität" in allgemein_str:
                 marvin_json = self.map_storage(data, html_content)
                 found_category = True
-                cat_debug = "Speicher"
-             except Exception as e:
-                print(f"   ❌ Fehler im Storage-Mapping für {filename}: {e}")
-                return    
-        
-        # 8. MONITOR CHECK
-        elif "bildschirm" in root_keys or "display" in root_keys or "monitor" in allgemein_str:
-             try:
+                cat_debug = "Speicher"    
+            
+            # 8. MONITOR
+            elif "bildschirm" in root_keys or "display" in root_keys or "monitor" in allgemein_str:
                 marvin_json = self.map_monitor(data, html_content)
                 found_category = True
                 cat_debug = "Monitor"
-             except Exception as e:
-                print(f"   ❌ Fehler im Monitor-Mapping für {filename}: {e}")
-                return
-        
-        # 9. LÜFTER / FAN CHECK (WG 11)
-        elif "lüfter" in filename.lower() or "fan" in filename.lower() or \
-             "gehäuselüfter" in json_str or \
-             "rotationsgeschwindigkeit" in json_str or \
-             "lüfterdurchmesser" in json_str:
-             try:
+            
+            # 9. LÜFTER
+            elif "lüfter" in filename.lower() or "fan" in filename.lower() or \
+                 "gehäuselüfter" in json_str or \
+                 "rotationsgeschwindigkeit" in json_str or \
+                 "lüfterdurchmesser" in json_str:
                 marvin_json = self.map_fan(data, html_content)
                 found_category = True
                 cat_debug = "Lüfter"
-             except Exception as e:
-                print(f"   ❌ Fehler im Fan-Mapping für {filename}: {e}")
-                return
-            
-        # WG 23 CHECK (WASSERKÜHLUNG)
-        # Priorität vor WG 9 (CPU-Kühler) für eindeutige AiOs
-        elif cat_debug == "Wasserkühlung" or "wasserkühlung" in json_str or "aio" in json_str or "liquid cooler" in json_str:
-             try:
+                
+            # WG 23 (WASSERKÜHLUNG)
+            elif cat_debug == "Wasserkühlung" or "wasserkühlung" in json_str or "aio" in json_str or "liquid cooler" in json_str:
                 marvin_json = self.map_water_cooling_wg23(data, html_content)
                 found_category = True
-                cat_debug = "Wasserkühlung (WG23)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG23-Mapping für {filename}: {e}")
-                return    
-        
-        # 10. CPU-KÜHLER / AIO CHECK (WG 9)
-        elif "bauhöhe" in json_str or "radiatorgröße" in json_str or "cpu-kühler" in json_str:
-             try:
+                cat_debug = "Wasserkühlung (WG23)"    
+            
+            # 10. CPU-KÜHLER
+            elif "bauhöhe" in json_str or "radiatorgröße" in json_str or "cpu-kühler" in json_str:
                 marvin_json = self.map_cpu_cooler(data, html_content)
                 found_category = True
                 cat_debug = "CPU-Kühler"
-             except Exception as e:
-                print(f"   ❌ Fehler im Kühler-Mapping für {filename}: {e}")
-                return
-            
-        # 11. KÜHLER  (WG 12)
-        elif cat_debug == "Kühler" or ("kühler" in json_str and "cpu-kühler" not in json_str):
-             try:
+                
+            # 11. KÜHLER (WG 12)
+            elif cat_debug == "Kühler" or ("kühler" in json_str and "cpu-kühler" not in json_str):
                 marvin_json = self.map_cooler_wg12(data, html_content)
                 found_category = True
-                cat_debug = "Kühler (WG12)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG12-Mapping: {e}")
-                return   
-            
-        # WG 14 CHECK
-        elif cat_debug == "Eingabegeräte" or "tastatur" in json_str or "maus" in json_str or "eingabegerät" in json_str:
-             try:
+                cat_debug = "Kühler (WG12)"   
+                
+            # WG 14
+            elif cat_debug == "Eingabegeräte" or "tastatur" in json_str or "maus" in json_str or "eingabegerät" in json_str:
                 marvin_json = self.map_input_devices_wg14(data, html_content)
                 found_category = True
                 cat_debug = "Eingabegeräte (WG14)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG14-Mapping: {e}")
-                return 
-            
-        # WG 15 CHECK (KABEL)
-        elif (cat_debug == "Kabel" or "kabel" in json_str or "adapter" in json_str or "anschluss a" in json_str) \
-             and "netzwerk" not in json_str and "network" not in json_str and "wlan" not in json_str:
-             try:
+                
+            # WG 15 (KABEL)
+            elif (cat_debug == "Kabel" or "kabel" in json_str or "adapter" in json_str or "anschluss a" in json_str) \
+                 and "netzwerk" not in json_str and "network" not in json_str and "wlan" not in json_str:
                 marvin_json = self.map_cables_wg15(data, html_content)
                 found_category = True
-                cat_debug = "Kabel (WG15)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG15-Mapping für {filename}: {e}")
-                return        
-        
-        # WG 16 CHECK (SOUNDKARTEN)
-        elif cat_debug == "Soundkarte" or "soundkarte" in json_str or "sound card" in json_str:
-             try:
+                cat_debug = "Kabel (WG15)"        
+            
+            # WG 16 (SOUND)
+            elif cat_debug == "Soundkarte" or "soundkarte" in json_str or "sound card" in json_str:
                 marvin_json = self.map_soundcard_wg16(data, html_content)
                 found_category = True
                 cat_debug = "Soundkarte (WG16)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG16-Mapping für {filename}: {e}")
-                return
-            
-        # WG 17 CHECK (AUDIO GERAETE)
-        elif (cat_debug == "Audio" or "mikrofon" in json_str or "microphone" in json_str) and "webcam" not in json_str:
-             try:
+                
+            # WG 17 (AUDIO)
+            elif (cat_debug == "Audio" or "mikrofon" in json_str or "microphone" in json_str) and "webcam" not in json_str:
                 marvin_json = self.map_audio_wg17(data, html_content)
                 found_category = True
-                cat_debug = "Audio (WG17)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG17-Mapping für {filename}: {e}")
-                return    
-        
-        # WG 18 CHECK (WEBCAM)
-        elif cat_debug == "Webcam" or "webcam" in json_str or "1080p" in json_str:
-             try:
+                cat_debug = "Audio (WG17)"    
+            
+            # WG 18 (WEBCAM)
+            elif cat_debug == "Webcam" or "webcam" in json_str or "1080p" in json_str:
                 marvin_json = self.map_webcam_wg18(data, html_content)
                 found_category = True
                 cat_debug = "Webcam (WG18)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG18-Mapping für {filename}: {e}")
-                return
-            
-        # WG 19 CHECK (GAMINGSTUHL)
-        elif cat_debug == "Gamingstuhl" or "gamingstuhl" in json_str or "gaming chair" in json_str or "bürostuhl" in json_str:
-             try:
+                
+            # WG 19 (CHAIR)
+            elif cat_debug == "Gamingstuhl" or "gamingstuhl" in json_str or "gaming chair" in json_str or "bürostuhl" in json_str:
                 marvin_json = self.map_gaming_chair_wg19(data, html_content)
                 found_category = True
-                cat_debug = "Gamingstuhl (WG19)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG19-Mapping für {filename}: {e}")
-                return    
-        
-        # WG 20 CHECK (NETZWERKKARTEN)
-        elif cat_debug == "Netzwerkkarte" or "netzwerkkarte" in json_str or "network card" in json_str or "nic" in json_str:
-             try:
+                cat_debug = "Gamingstuhl (WG19)"    
+            
+            # WG 20 (NIC)
+            elif cat_debug == "Netzwerkkarte" or "netzwerkkarte" in json_str or "network card" in json_str or "nic" in json_str:
                 marvin_json = self.map_network_card_wg20(data, html_content)
                 found_category = True
                 cat_debug = "Netzwerkkarte (WG20)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG20-Mapping für {filename}: {e}")
-                return
-         
-        # WG 21 CHECK (NETZWERKADAPTER)
-        elif cat_debug == "Netzwerkadapter" or "netzwerkadapter" in json_str or "wlan stick" in json_str:
-             try:
+            
+            # WG 21 (ADAPTER)
+            elif cat_debug == "Netzwerkadapter" or "netzwerkadapter" in json_str or "wlan stick" in json_str:
                 marvin_json = self.map_network_adapter_wg21(data, html_content)
                 found_category = True
                 cat_debug = "Netzwerkadapter (WG21)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG21-Mapping für {filename}: {e}")
-                return
-            
-        # WG 22 CHECK (SOFTWARE)
-        elif cat_debug == "Software" or "software" in json_str or "windows" in json_str or "office" in json_str:
-             try:
+                
+            # WG 22 (SW)
+            elif cat_debug == "Software" or "software" in json_str or "windows" in json_str or "office" in json_str:
                 marvin_json = self.map_software_wg22(data, html_content)
                 found_category = True
                 cat_debug = "Software (WG22)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG22-Mapping für {filename}: {e}")
-                return 
-            
-        # WG 24 CHECK (PC SYSTEM)
-        elif cat_debug == "PC-System" or "pc-system" in json_str or "komplett-pc" in json_str:
-             try:
+                
+            # WG 24 (PC)
+            elif cat_debug == "PC-System" or "pc-system" in json_str or "komplett-pc" in json_str:
                 marvin_json = self.map_pc_system_wg24(data, html_content)
                 found_category = True
-                cat_debug = "PC-System (WG24)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG24-Mapping für {filename}: {e}")
-                return  
-            
-        # WG 33 CHECK (SONSTIGES)
-        elif cat_debug == "Sonstiges" or "sonstiges" in json_str or "zubehör" in json_str:
-             try:
+                cat_debug = "PC-System (WG24)"  
+                
+            # WG 33 (MISC)
+            elif cat_debug == "Sonstiges" or "sonstiges" in json_str or "zubehör" in json_str:
                 marvin_json = self.map_misc_wg33(data, html_content)
                 found_category = True
-                cat_debug = "Sonstiges (WG33)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG33-Mapping für {filename}: {e}")
-                return         
-        
-        # WG 34 CHECK (TASTATUREN SPEZIFISCH)
-        elif cat_debug == "Tastatur_WG34":
-             try:
+                cat_debug = "Sonstiges (WG33)"        
+            
+            # WG 34 (KEY)
+            elif cat_debug == "Tastatur_WG34":
                 marvin_json = self.map_keyboard_wg34(data, html_content)
                 found_category = True
                 cat_debug = "Tastatur (WG34)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG34-Mapping für {filename}: {e}")
-                return 
-        
-        # WG 35 CHECK (MÄUSE SPEZIFISCH)
-        elif cat_debug == "Maus_WG35":
-             try:
+            
+            # WG 35 (MOUSE)
+            elif cat_debug == "Maus_WG35":
                 marvin_json = self.map_mouse_wg35(data, html_content)
                 found_category = True
                 cat_debug = "Maus (WG35)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG35-Mapping für {filename}: {e}")
-                return
             
-        # WG 36 CHECK (HEADSETS SPEZIFISCH)
-        elif cat_debug == "Headset_WG36":
-             try:
+            # WG 36 (HEAD)
+            elif cat_debug == "Headset_WG36":
                 marvin_json = self.map_headset_wg36(data, html_content)
                 found_category = True
                 cat_debug = "Headset (WG36)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG36-Mapping für {filename}: {e}")
-                return 
             
-        # WG 37 CHECK (STREAMING)
-        elif cat_debug == "Streaming" or "streaming" in json_str or "capture card" in json_str or "stream deck" in json_str:
-             try:
+            # WG 37 (STREAM)
+            elif cat_debug == "Streaming" or "streaming" in json_str or "capture card" in json_str or "stream deck" in json_str:
                 marvin_json = self.map_streaming_wg37(data, html_content)
                 found_category = True
-                cat_debug = "Streaming (WG37)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG37-Mapping für {filename}: {e}")
-                return       
-        
-        # WG 38 CHECK (LAUTSPRECHER)
-        elif cat_debug == "Lautsprecher" or "lautsprecher" in json_str or "soundbar" in json_str:
-             try:
+                cat_debug = "Streaming (WG37)"        
+            
+            # WG 38 (SPEAK)
+            elif cat_debug == "Lautsprecher" or "lautsprecher" in json_str or "soundbar" in json_str:
                 marvin_json = self.map_speakers_wg38(data, html_content)
                 found_category = True
-                cat_debug = "Lautsprecher (WG38)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG38-Mapping für {filename}: {e}")
-                return  
-            
-        # WG 39 CHECK (MAUSPADS)
-        elif cat_debug == "Mauspad_WG39":
-             try:
+                cat_debug = "Lautsprecher (WG38)"  
+                
+            # WG 39 (PAD)
+            elif cat_debug == "Mauspad_WG39":
                 marvin_json = self.map_mousepad_wg39(data, html_content)
                 found_category = True
-                cat_debug = "Mauspad (WG39)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG39-Mapping für {filename}: {e}")
-                return  
-            
-        # WG 40 CHECK (DESKTOP SETS)
-        elif cat_debug == "Desktop_Set_WG40":
-             try:
+                cat_debug = "Mauspad (WG39)"  
+                
+            # WG 40 (SET)
+            elif cat_debug == "Desktop_Set_WG40":
                 marvin_json = self.map_desktop_set_wg40(data, html_content)
                 found_category = True
-                cat_debug = "Desktop-Set (WG40)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG40-Mapping für {filename}: {e}")
-                return  
-            
-        # WG 41 CHECK (SERVICE)
-        elif cat_debug == "Service" or "garantie" in json_str or "warranty" in json_str or "care pack" in json_str:
-             try:
+                cat_debug = "Desktop-Set (WG40)"  
+                
+            # WG 41 (SVC)
+            elif cat_debug == "Service" or "garantie" in json_str or "warranty" in json_str or "care pack" in json_str:
                 marvin_json = self.map_service_wg41(data, html_content)
                 found_category = True
-                cat_debug = "Service (WG41)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG41-Mapping für {filename}: {e}")
-                return  
-            
-        # WG 42 CHECK (USB STICKS)
-        elif cat_debug == "USB-Stick" or "usb-stick" in json_str or "flash drive" in json_str or "thumb drive" in json_str:
-             try:
+                cat_debug = "Service (WG41)"  
+                
+            # WG 42 (STICK)
+            elif cat_debug == "USB-Stick" or "usb-stick" in json_str or "flash drive" in json_str or "thumb drive" in json_str:
                 marvin_json = self.map_usb_stick_wg42(data, html_content)
                 found_category = True
                 cat_debug = "USB-Stick (WG42)"
-             except Exception as e:
-                print(f"   ❌ Fehler im WG42-Mapping für {filename}: {e}")
-                return            
             
-               
-        # Fallback falls Struktur nicht erkannt wird, 
-        # neue Kategiorien für den !Dispatcher! 
-        # werde genau hier drüber eingetragen.  
-        else:
-            print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")
+            else:
+                print(f"   ⚠️ SKIPPED Marvin-JSON für {filename}: Keine bekannte Struktur erkannt.")
+                return
+
+        except Exception as e:
+            # HIER WIRD DER ABSTURZ ABGEFANGEN
+            print(f"   🔥 CRITICAL MAPPING ERROR für {filename} ({cat_debug}): {e}")
             return
-       
 
         # Speichern
         if found_category:
-            output_path = os.path.join(self.output_folder, filename.replace(".json", "_marvin.json"))
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(marvin_json, f, indent=4, ensure_ascii=False)
+            try:
+                output_path = os.path.join(self.output_folder, filename.replace(".json", "_marvin.json"))
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    json.dump(marvin_json, f, indent=4, ensure_ascii=False)
                 
-            print(f"   👤 Marvin-JSON erstellt ({cat_debug} | WG {marvin_json.get('kWarengruppe')}): {output_path}")
-            
-            
-            
+                print(f"   👤 Marvin-JSON erstellt ({cat_debug} | WG {marvin_json.get('kWarengruppe')}): {output_path}")
+            except Exception as e:
+                print(f"   ❌ Fehler beim Speichern der JSON für {filename}: {e}")

@@ -916,11 +916,11 @@ class HTMLGenerator:
             html += '\n<div class="ITSg">Kühlkörper und Lüfter</div>\n'
             keys_cool = [
                 ("Kompatibel mit", "Kompatibel mit"),
-                ("Prozessorkompatibilität", "Prozessorkompatibilität"), # <--- WICHTIG
+                ("Prozessorkompatibilität", "Prozessorkompatibilität"),
                 ("Kühlermaterial", "Kühlermaterial"),
                 ("Radiatormaterial", "Radiatormaterial"),
-                ("Kühlerabmessungen", "Kühlerabmessungen"), # <--- WICHTIG
-                ("Gebläseanzahl", "Gebläseanzahl"),         # <--- WICHTIG
+                ("Kühlerabmessungen", "Kühlerabmessungen"),
+                ("Gebläseanzahl", "Gebläseanzahl"),
                 ("Lüfterdurchmesser", "Lüfterdurchmesser"),
                 ("Gebläsehöhe", "Gebläsehöhe"),
                 ("Lüfterlager", "Lüfterlager"),
@@ -929,6 +929,12 @@ class HTMLGenerator:
                 ("Luftdruck", "Luftdruck"),
                 ("Geräuschpegel", "Geräuschpegel"),
                 ("Netzanschluss", "Netzanschluss"),
+                # --- HIER WAREN SIE NOCH NICHT DRIN ---
+                ("Nennspannung", "Nennspannung"),
+                ("Nennstrom", "Nennstrom"),
+                ("Energieverbrauch", "Energieverbrauch"),
+                ("Kabellänge", "Kabellänge"),
+                # --------------------------------------
                 ("Merkmale", "Merkmale")
             ]
             

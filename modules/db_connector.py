@@ -39,16 +39,14 @@ class DBConnector:
 
         return self._write_to_db(art_nr, html_content)
 
-    # --- MASSEN IMPORT (Deine Schleife) ---
+    # --- MASSEN IMPORT ---
     def export_all_articles(self, callback_log=None):
         """ 
         Exportiert ALLE HTML-Dateien aus dem Ordner.
-        callback_log: Eine Funktion (print), um Status an die GUI zu senden.
         """
         if not os.path.exists(self.html_folder):
             return "❌ Ordner 'output_HTML' nicht gefunden!"
 
-        # Alle .html Dateien holen
         files = [f for f in os.listdir(self.html_folder) if f.endswith('.html')]
         
         if not files:
@@ -56,39 +54,44 @@ class DBConnector:
 
         if callback_log: callback_log(f"🔄 Starte Massen-Update für {len(files)} Artikel...")
         
-        # Verbindung EINMAL aufbauen für Speed
         conn = None
         try:
             conn = mysql.connector.connect(**self.config)
             cursor = conn.cursor()
             
             success_count = 0
+            skipped_count = 0
             error_count = 0
             
-            # --- DIE SCHLEIFE ---
             for i, filename in enumerate(files):
                 try:
-                    # Dateiname ist Artikelnummer (z.B. "106555.html" -> "106555")
                     art_nr = os.path.splitext(filename)[0]
                     file_path = os.path.join(self.html_folder, filename)
                     
                     with open(file_path, 'r', encoding='utf-8') as f:
                         html_content = f.read()
                     
-                    # SQL Update
-                    # Wir prüfen erst, ob die Artikelnummer überhaupt existiert (optional, aber sauberer)
-                    # Hier machen wir direkt UPDATE, um Zeit zu sparen. rowcount zeigt uns, ob was passiert ist.
+                    # 1. Update versuchen
                     update_query = "UPDATE tartikel SET cBeschreibung = %s WHERE cArtNr = %s"
                     cursor.execute(update_query, (html_content, art_nr))
                     
                     if cursor.rowcount > 0:
+                        # Fall A: Daten wurden geändert
                         success_count += 1
                         if callback_log: callback_log(f"  ✅ {art_nr}: Updated")
                     else:
-                        error_count += 1
-                        if callback_log: callback_log(f"  ⚠️ {art_nr}: Artikelnummer nicht in DB gefunden")
+                        # Fall B: Keine Änderung (0 Zeilen). Warum?
+                        # Checken ob Artikel überhaupt existiert
+                        cursor.execute("SELECT cArtNr FROM tartikel WHERE cArtNr = %s", (art_nr,))
+                        if cursor.fetchone():
+                            # Artikel da -> Daten waren identisch
+                            skipped_count += 1
+                            if callback_log: callback_log(f"  ℹ️ {art_nr}: Bereits aktuell (Daten identisch)")
+                        else:
+                            # Artikel NICHT da -> Fehler
+                            error_count += 1
+                            if callback_log: callback_log(f"  ⚠️ {art_nr}: Artikelnummer nicht in DB gefunden!")
                     
-                    # Fortschritt alle 10 Artikel committen (speichern)
                     if i % 10 == 0:
                         conn.commit()
 
@@ -96,10 +99,9 @@ class DBConnector:
                     error_count += 1
                     if callback_log: callback_log(f"  ❌ Fehler bei {filename}: {e}")
 
-            # Am Ende alles final speichern
             conn.commit()
             cursor.close()
-            return f"🏁 Fertig! Erfolgreich: {success_count} | Fehler/Nicht gefunden: {error_count}"
+            return f"🏁 Fertig! Updated: {success_count} | Identisch: {skipped_count} | Nicht gefunden/Fehler: {error_count}"
 
         except mysql.connector.Error as err:
             return f"❌ Datenbank-Fehler: {err}"
@@ -114,15 +116,27 @@ class DBConnector:
             conn = mysql.connector.connect(**self.config)
             cursor = conn.cursor()
             
+            # 1. Update
             update_query = "UPDATE tartikel SET cBeschreibung = %s WHERE cArtNr = %s"
             cursor.execute(update_query, (content, art_nr))
+            rows = cursor.rowcount
+            
             conn.commit()
             
-            rows = cursor.rowcount
-            cursor.close()
-            
-            if rows > 0: return True, f"✅ Artikel '{art_nr}' aktualisiert."
-            else: return False, f"⚠️ Artikel '{art_nr}' nicht in DB gefunden."
+            if rows > 0:
+                msg = f"✅ Artikel '{art_nr}' erfolgreich aktualisiert."
+                cursor.close()
+                return True, msg
+            else:
+                # 2. Detail-Check: Existiert er?
+                cursor.execute("SELECT cArtNr FROM tartikel WHERE cArtNr = %s", (art_nr,))
+                result = cursor.fetchone()
+                cursor.close()
+                
+                if result:
+                    return True, f"ℹ️ Artikel '{art_nr}' war bereits auf dem neuesten Stand (Daten identisch)."
+                else:
+                    return False, f"⚠️ Artikel '{art_nr}' wurde nicht in der Datenbank gefunden!"
 
         except mysql.connector.Error as err:
             return False, f"SQL Fehler: {err}"
